@@ -27,6 +27,7 @@
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/create_timer_ros.h"
 #include "geometry_msgs/msg/twist.hpp"
+#include "std_msgs/msg/string.hpp"
 #include "nav2_util/simple_action_server.hpp"
 #include "nav2_util/robot_utils.hpp"
 #include "nav2_core/behavior.hpp"
@@ -128,7 +129,8 @@ public:
     collision_checker_ = collision_checker;
 
     vel_pub_ = node->template create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
-
+    last_navigating_dir_sub_ = node->create_subscription<std_msgs::msg::String>("direction", 10,
+      std::bind(&TimedBehavior::lastNavigatingDirCB, this, std::placeholders::_1));
     onConfigure();
   }
 
@@ -163,6 +165,7 @@ protected:
 
   std::string behavior_name_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr last_navigating_dir_sub_;
   std::shared_ptr<ActionServer> action_server_;
   std::shared_ptr<nav2_costmap_2d::CostmapTopicCollisionChecker> collision_checker_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
@@ -179,6 +182,13 @@ protected:
 
   // Logger
   rclcpp::Logger logger_{rclcpp::get_logger("nav2_behaviors")};
+
+  std::string last_navigating_dir_;
+
+  void lastNavigatingDirCB(const std_msgs::msg::String::SharedPtr msg)
+  {
+    last_navigating_dir_ = msg->data;
+  }
 
   // Main execution callbacks for the action server implementation calling the Behavior's
   // onRun and cycle functions to execute a specific behavior

@@ -132,7 +132,7 @@ public:
     pose2d.x = current_pose.pose.position.x;
     pose2d.y = current_pose.pose.position.y;
     pose2d.theta = tf2::getYaw(current_pose.pose.orientation);
-
+    std::cout << " ================== drive on heading on cycleupdate check collision ================== " << std::endl;
     if (!isCollisionFree(distance, cmd_vel.get(), pose2d)) {
       this->stopRobot();
       RCLCPP_WARN(this->logger_, "Collision Ahead - Exiting DriveOnHeading");

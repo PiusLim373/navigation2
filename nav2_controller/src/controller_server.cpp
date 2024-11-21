@@ -194,6 +194,7 @@ ControllerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
 
   odom_sub_ = std::make_unique<nav_2d_utils::OdomSubscriber>(node);
   vel_publisher_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
+  direction_publisher_ = create_publisher<std_msgs::msg::String>("direction", 1);
 
   // Create the action server that we implement with our followPath method
   action_server_ = std::make_unique<ActionServer>(
@@ -564,6 +565,28 @@ void ControllerServer::publishVelocity(const geometry_msgs::msg::TwistStamped & 
   auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>(velocity.twist);
   if (vel_publisher_->is_activated() && vel_publisher_->get_subscription_count() > 0) {
     vel_publisher_->publish(std::move(cmd_vel));
+
+    std::string new_direction;
+    if (velocity.twist.linear.x > 0.1) 
+    {
+      new_direction = "forward";
+    } 
+    else if (velocity.twist.linear.x < -0.1) 
+    {
+      new_direction = "backward";
+    }
+    else if (fabs(velocity.twist.angular.z) > 0.1) 
+    {
+      new_direction = "rotating";
+    }
+
+    if (new_direction != "" && new_direction != direction) 
+    {
+      direction = new_direction;
+      std_msgs::msg::String direction_msg;
+      direction_msg.data = direction;
+      direction_publisher_->publish(direction_msg);
+    }
   }
 }
 

@@ -74,7 +74,7 @@ class BasicNavigator(Node):
                                                               'compute_path_through_poses')
         self.smoother_client = ActionClient(self, SmoothPath, 'smooth_path')
         self.spin_client = ActionClient(self, Spin, 'spin')
-        self.backup_client = ActionClient(self, BackUp, 'backup')
+        self.backup_client = ActionClient(self, BackUp, 'bidirectional_backup')
         self.assisted_teleop_client = ActionClient(self, AssistedTeleop, 'assisted_teleop')
         self.localization_pose_sub = self.create_subscription(PoseWithCovarianceStamped,
                                                               'amcl_pose',

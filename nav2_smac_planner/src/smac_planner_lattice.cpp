@@ -233,10 +233,31 @@ void SmacPlannerLattice::cleanup()
   _raw_plan_publisher.reset();
 }
 
+double SmacPlannerLattice::perpendicular_distance(geometry_msgs::msg::PoseStamped start,
+                                                  geometry_msgs::msg::PoseStamped goal,
+                                                  geometry_msgs::msg::PoseStamped check)
+{
+  double start_x = start.pose.position.x;
+  double start_y = start.pose.position.y;
+  double goal_x = goal.pose.position.x;
+  double goal_y = goal.pose.position.y;
+  double check_x = check.pose.position.x;
+  double check_y = check.pose.position.y;
+
+  double a = goal_y - start_y;
+  double b = -(goal_x - start_x);
+  double c = goal_x * start_y - goal_y * start_x;
+
+  double distance = fabs(a * check_x + b * check_y + c) / sqrt(pow(a, 2) + pow(b, 2));
+  return distance;
+}
+
 nav_msgs::msg::Path SmacPlannerLattice::createPlan(
   const geometry_msgs::msg::PoseStamped & start,
   const geometry_msgs::msg::PoseStamped & goal)
 {
+  // RCLCPP_WARN(_logger,"===== Pius debug, start x: %.3f, y: %.3f", start.pose.position.x, start.pose.position.y);
+  // RCLCPP_WARN(_logger,"===== Pius debug, goal x: %.3f, y: %.3f", goal.pose.position.x, goal.pose.position.y);
   std::lock_guard<std::mutex> lock_reinit(_mutex);
   steady_clock::time_point a = steady_clock::now();
 
@@ -347,7 +368,20 @@ nav_msgs::msg::Path SmacPlannerLattice::createPlan(
   std::cout << "It took " << time_span2.count() * 1000 <<
     " milliseconds to smooth path." << std::endl;
 #endif
-
+    
+for (auto x: plan.poses)
+{
+  double perpendicular_dist = perpendicular_distance(start, goal, x);
+  // RCLCPP_WARN(_logger,"===== Pius debug, check x: %.3f, y: %.3f, dist: %.3f", x.pose.position.x, x.pose.position.y, perpendicular_dist); 
+  if(perpendicular_dist >= 2.5)
+  {
+    RCLCPP_ERROR(_logger,"========================= Pius debug, distance offset more than 2.5m, possible using other route, need to reject");
+    nav_msgs::msg::Path empty_plan;
+    empty_plan.header.stamp = _clock->now();
+    empty_plan.header.frame_id = _global_frame;
+    return empty_plan;
+  }
+}
   return plan;
 }
 

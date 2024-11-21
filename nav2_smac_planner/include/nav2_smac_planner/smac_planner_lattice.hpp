@@ -75,6 +75,7 @@ public:
    */
   void deactivate() override;
 
+  double perpendicular_distance(geometry_msgs::msg::PoseStamped start, geometry_msgs::msg::PoseStamped goal, geometry_msgs::msg::PoseStamped check);
   /**
    * @brief Creating a plan from start and goal poses
    * @param start Start pose
