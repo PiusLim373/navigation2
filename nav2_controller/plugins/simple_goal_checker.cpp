@@ -100,8 +100,12 @@ bool SimpleGoalChecker::isGoalReached(
   const geometry_msgs::msg::Twist &)
 {
   if (check_xy_) {
+    // std::cout << "inside check_xy_, goal pose x: " << goal_pose.position.x << "y: " << goal_pose.position.y << std::endl;
+    // std::cout << "inside check_xy_, query pose x: " << query_pose.position.x << "y: " << query_pose.position.y << std::endl;
     double dx = query_pose.position.x - goal_pose.position.x,
       dy = query_pose.position.y - goal_pose.position.y;
+    // std::cout << "inside check_xy_, dx: " << dx << "dy: " << dy << "xy_goal_tolerance_sq_: " << xy_goal_tolerance_sq_ <<  std::endl;
+    
     if (dx * dx + dy * dy > xy_goal_tolerance_sq_) {
       return false;
     }
@@ -114,6 +118,7 @@ bool SimpleGoalChecker::isGoalReached(
   double dyaw = angles::shortest_angular_distance(
     tf2::getYaw(query_pose.orientation),
     tf2::getYaw(goal_pose.orientation));
+  // std::cout << "checking yaw, dyaw: " << dyaw << "yaw_goal_tolerance_: " << yaw_goal_tolerance_ <<  std::endl;
   return fabs(dyaw) < yaw_goal_tolerance_;
 }
 

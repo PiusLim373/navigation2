@@ -39,7 +39,6 @@ BT::NodeStatus RecoveryNodeWithTimeout::tick()
     throw BT::BehaviorTreeException("Recovery Node '" + name() + "' must only have 2 children.");
   }
   if (start_time_ == std::chrono::steady_clock::time_point{}) {
-    std::cout<< "Resetting start timer" << std::endl;
     start_time_ = std::chrono::steady_clock::now();  // Capture the current time
   }
 

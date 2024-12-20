@@ -452,9 +452,9 @@ void ControllerServer::setPlannerPath(const nav_msgs::msg::Path & path)
   end_pose_.header.frame_id = path.header.frame_id;
   goal_checkers_[current_goal_checker_]->reset();
 
-  RCLCPP_DEBUG(
-    get_logger(), "Path end point is (%.2f, %.2f)",
-    end_pose_.pose.position.x, end_pose_.pose.position.y);
+  // RCLCPP_INFO(
+  //   get_logger(), "Path end point is (%.2f, %.2f)",
+  //   end_pose_.pose.position.x, end_pose_.pose.position.y);
 
   current_path_ = path;
 }

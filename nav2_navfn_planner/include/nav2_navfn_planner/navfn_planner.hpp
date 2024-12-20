@@ -86,6 +86,9 @@ public:
     const geometry_msgs::msg::PoseStamped & start,
     const geometry_msgs::msg::PoseStamped & goal) override;
 
+  double perpendicular_distance(geometry_msgs::msg::PoseStamped start,
+                                              geometry_msgs::msg::PoseStamped goal,
+                                              geometry_msgs::msg::PoseStamped check);
 protected:
   /**
    * @brief Compute a plan given start and goal poses, provided in global world frame.

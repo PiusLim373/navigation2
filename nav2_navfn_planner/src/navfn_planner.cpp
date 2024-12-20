@@ -183,8 +183,40 @@ nav_msgs::msg::Path NavfnPlanner::createPlan(
   duration<double> time_span = duration_cast<duration<double>>(b - a);
   std::cout << "It took " << time_span.count() * 1000 << std::endl;
 #endif
-
+  // RCLCPP_WARN(logger_, "==== Pius debug, path size: %ld", path.poses.size());
+  for (auto x: path.poses)
+  {
+    double perpendicular_dist = perpendicular_distance(start, goal, x);
+    // RCLCPP_WARN(logger_,"===== Pius debug, check x: %.3f, y: %.3f, dist: %.3f", x.pose.position.x, x.pose.position.y, perpendicular_dist); 
+    if(perpendicular_dist >= 2.5)
+    {
+      RCLCPP_ERROR(logger_,"========================= Pius debug, distance offset more than 2.5m, possible using other route, need to reject");
+      nav_msgs::msg::Path empty_path;
+      empty_path.header.stamp = clock_->now();
+      empty_path.header.frame_id = global_frame_;
+      return empty_path;
+    }
+  }
   return path;
+}
+
+double NavfnPlanner::perpendicular_distance(geometry_msgs::msg::PoseStamped start,
+                                            geometry_msgs::msg::PoseStamped goal,
+                                            geometry_msgs::msg::PoseStamped check)
+{
+  double start_x = start.pose.position.x;
+  double start_y = start.pose.position.y;
+  double goal_x = goal.pose.position.x;
+  double goal_y = goal.pose.position.y;
+  double check_x = check.pose.position.x;
+  double check_y = check.pose.position.y;
+
+  double a = goal_y - start_y;
+  double b = -(goal_x - start_x);
+  double c = goal_x * start_y - goal_y * start_x;
+
+  double distance = fabs(a * check_x + b * check_y + c) / sqrt(pow(a, 2) + pow(b, 2));
+  return distance;
 }
 
 bool
