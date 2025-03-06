@@ -596,7 +596,7 @@ AmclNode::handleInitialPose(geometry_msgs::msg::PoseWithCovarianceStamped & msg)
   pf_vector_t pf_init_pose_mean = pf_vector_zero();
   pf_init_pose_mean.v[0] = pose_new.getOrigin().x();
   pf_init_pose_mean.v[1] = pose_new.getOrigin().y();
-  pf_init_pose_mean.v[2] = tf2::getYaw(pose_new.getRotation());
+  // pf_init_pose_mean.v[2] = tf2::getYaw(pose_new.getRotation());
 
   pf_matrix_t pf_init_pose_cov = pf_matrix_zero();
   // Copy in the covariance, converting from 6-D to 3-D
@@ -608,7 +608,17 @@ AmclNode::handleInitialPose(geometry_msgs::msg::PoseWithCovarianceStamped & msg)
 
   pf_init_pose_cov.m[2][2] = msg.pose.covariance[6 * 5 + 5];
 
-  pf_init(pf_, pf_init_pose_mean, pf_init_pose_cov);
+  // pf_init_pose_cov.m[0][0] = 0.25;
+  // pf_init_pose_cov.m[1][1] = 0.25;
+  // pf_init_pose_cov.m[2][2] = 0.1;
+  std::cout << "[pius debug]========== pf_init_pose_cov: " << pf_init_pose_cov.m[0][0] << std::endl;
+  std::cout << "[pius debug]==========pf_init_pose_cov: " << pf_init_pose_cov.m[1][1] << std::endl;
+  std::cout << "[pius debug]==========pf_init_pose_cov: " << pf_init_pose_cov.m[2][2] << std::endl;
+  std::cout << "running pf init rand" << std::endl;
+  std::cout << "sample: %d" << pf_->max_samples <<std::endl;
+
+  pf_init_rand(pf_, pf_init_pose_mean, pf_init_pose_cov);
+  // pf_init(pf_, pf_init_pose_mean, pf_init_pose_cov);
   pf_init_ = false;
   init_pose_received_on_inactive = false;
   initial_pose_is_known_ = true;

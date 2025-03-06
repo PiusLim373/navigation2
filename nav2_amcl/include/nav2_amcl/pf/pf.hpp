@@ -147,6 +147,7 @@ void pf_free(pf_t * pf);
 
 // Initialize the filter using a guassian
 void pf_init(pf_t * pf, pf_vector_t mean, pf_matrix_t cov);
+void pf_init_rand(pf_t * pf, pf_vector_t mean, pf_matrix_t cov);
 
 // Initialize the filter using some model
 void pf_init_model(pf_t * pf, pf_init_model_fn_t init_fn, void * init_data);
