@@ -30,6 +30,8 @@
 #include "nav2_msgs/action/follow_path.hpp"
 #include "nav2_msgs/msg/speed_limit.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/bool.hpp"
+#include "sesto_msgs/msg/safety_control.hpp"
 #include "nav_2d_utils/odom_subscriber.hpp"
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_util/simple_action_server.hpp"
@@ -223,6 +225,8 @@ protected:
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr direction_publisher_;
   rclcpp::Subscription<nav2_msgs::msg::SpeedLimit>::SharedPtr speed_limit_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr laser_muted_sub_;
+  rclcpp::Subscription<sesto_msgs::msg::SafetyControl>::SharedPtr safety_control_sub_;
 
   // Progress Checker Plugin
   pluginlib::ClassLoader<nav2_core::ProgressChecker> progress_checker_loader_;
@@ -258,6 +262,8 @@ protected:
   double failure_tolerance_;
 
   std::string direction = "";
+  bool safety_violated = false;
+  bool laser_muted = false;
 
   // Whether we've published the single controller warning yet
   geometry_msgs::msg::PoseStamped end_pose_;
@@ -274,6 +280,8 @@ private:
     * @param msg Shared pointer to nav2_msgs::msg::SpeedLimit
     */
   void speedLimitCallback(const nav2_msgs::msg::SpeedLimit::SharedPtr msg);
+  void laserMutedCallback(const std_msgs::msg::Bool::SharedPtr msg);
+  void safetyControlCallback(const sesto_msgs::msg::SafetyControl::SharedPtr msg);
 };
 
 }  // namespace nav2_controller

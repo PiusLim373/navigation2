@@ -209,6 +209,12 @@ ControllerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
   speed_limit_sub_ = create_subscription<nav2_msgs::msg::SpeedLimit>(
     speed_limit_topic, rclcpp::QoS(10),
     std::bind(&ControllerServer::speedLimitCallback, this, std::placeholders::_1));
+  safety_control_sub_ = create_subscription<sesto_msgs::msg::SafetyControl>(
+    "safety_control", rclcpp::QoS(10),
+    std::bind(&ControllerServer::safetyControlCallback, this, std::placeholders::_1));
+  laser_muted_sub_ = create_subscription<std_msgs::msg::Bool>(
+    "laser_mute_status", rclcpp::QoS(10),
+    std::bind(&ControllerServer::laserMutedCallback, this, std::placeholders::_1));
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -290,6 +296,7 @@ ControllerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   costmap_thread_.reset();
   vel_publisher_.reset();
   speed_limit_sub_.reset();
+  safety_control_sub_.reset();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -467,8 +474,15 @@ void ControllerServer::computeAndPublishVelocity()
     throw nav2_core::PlannerException("Failed to obtain robot pose");
   }
 
-  if (!progress_checker_->check(pose)) {
+  if (!laser_muted && !progress_checker_->check(pose)) {
     throw nav2_core::PlannerException("Failed to make progress");
+  }
+
+  if (safety_violated) {
+    RCLCPP_WARN(get_logger(), "Safety violated, stopping the robot.");
+    RCLCPP_DEBUG(get_logger(), "Publishing velocity at time %.2f", now().seconds());
+    publishZeroVelocity();
+    return;
   }
 
   nav_2d_msgs::msg::Twist2D twist = getThresholdedTwist(odom_sub_->getTwist());
@@ -642,6 +656,16 @@ void ControllerServer::speedLimitCallback(const nav2_msgs::msg::SpeedLimit::Shar
   for (it = controllers_.begin(); it != controllers_.end(); ++it) {
     it->second->setSpeedLimit(msg->speed_limit, msg->percentage);
   }
+}
+
+void ControllerServer::safetyControlCallback(const sesto_msgs::msg::SafetyControl::SharedPtr msg)
+{
+  safety_violated = msg->safety_violated;
+}
+
+void ControllerServer::laserMutedCallback(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  laser_muted = msg->data;
 }
 
 rcl_interfaces::msg::SetParametersResult

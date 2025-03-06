@@ -283,11 +283,13 @@ class BasicNavigator(Node):
         rclpy.spin_until_future_complete(self, self.result_future, timeout_sec=0.10)
         if self.result_future.result():
             self.status = self.result_future.result().status
+            print(f"[Robot navigator] {self.status}")
             if self.status != GoalStatus.STATUS_SUCCEEDED:
                 self.debug(f'Task with failed with status code: {self.status}')
                 return True
         else:
             # Timed out, still processing, not complete yet
+            print("[Robot navigator] timeout")
             return False
 
         self.debug('Task succeeded!')

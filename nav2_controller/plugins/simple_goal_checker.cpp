@@ -59,6 +59,7 @@ SimpleGoalChecker::SimpleGoalChecker()
   check_xy_(true),
   xy_goal_tolerance_sq_(0.0625)
 {
+  yaw_goal_modulo_ = 0.0;
 }
 
 void SimpleGoalChecker::initialize(
@@ -77,10 +78,14 @@ void SimpleGoalChecker::initialize(
     plugin_name + ".yaw_goal_tolerance", rclcpp::ParameterValue(0.25));
   nav2_util::declare_parameter_if_not_declared(
     node,
+    plugin_name + ".yaw_goal_modulo", rclcpp::ParameterValue(0.0));
+  nav2_util::declare_parameter_if_not_declared(
+    node,
     plugin_name + ".stateful", rclcpp::ParameterValue(true));
 
   node->get_parameter(plugin_name + ".xy_goal_tolerance", xy_goal_tolerance_);
   node->get_parameter(plugin_name + ".yaw_goal_tolerance", yaw_goal_tolerance_);
+  node->get_parameter(plugin_name + ".yaw_goal_modulo", yaw_goal_modulo_);
   node->get_parameter(plugin_name + ".stateful", stateful_);
 
   xy_goal_tolerance_sq_ = xy_goal_tolerance_ * xy_goal_tolerance_;
@@ -115,11 +120,45 @@ bool SimpleGoalChecker::isGoalReached(
       check_xy_ = false;
     }
   }
-  double dyaw = angles::shortest_angular_distance(
-    tf2::getYaw(query_pose.orientation),
-    tf2::getYaw(goal_pose.orientation));
-  // std::cout << "checking yaw, dyaw: " << dyaw << "yaw_goal_tolerance_: " << yaw_goal_tolerance_ <<  std::endl;
+  double dyaw;
+  std::cout << "curr modulo: " << yaw_goal_modulo_ << std::endl;
+
+  if (yaw_goal_modulo_ <= 0.0)
+  {
+    dyaw = 0.0;
+  }
+  else if (yaw_goal_modulo_ >= 2 * M_PI)
+  {
+    dyaw = angles::shortest_angular_distance(tf2::getYaw(query_pose.orientation), tf2::getYaw(goal_pose.orientation));
+  }
+  else
+  {
+    double total_diff =
+        angles::shortest_angular_distance(tf2::getYaw(query_pose.orientation), tf2::getYaw(goal_pose.orientation));
+    double remainder_diff = std::fmod(total_diff, yaw_goal_modulo_);
+    if (fabs(remainder_diff) > yaw_goal_modulo_ / 2.0)
+    {
+      if (remainder_diff > 0)
+        dyaw = remainder_diff - yaw_goal_modulo_;
+      else
+        dyaw = remainder_diff + yaw_goal_modulo_;
+    }
+    else
+      dyaw = remainder_diff;
+  }
+  // double dyaw = angles::shortest_angular_distance(
+  //   tf2::getYaw(query_pose.orientation),
+  //   tf2::getYaw(goal_pose.orientation));
+  std::cout << "checking yaw, dyaw: " << dyaw << "yaw_goal_tolerance_: " << yaw_goal_tolerance_ <<  std::endl;
   return fabs(dyaw) < yaw_goal_tolerance_;
+
+
+
+  // double dyaw = angles::shortest_angular_distance(
+  //   tf2::getYaw(query_pose.orientation),
+  //   tf2::getYaw(goal_pose.orientation));
+  // std::cout << "checking yaw, dyaw: " << dyaw << "yaw_goal_tolerance_: " << yaw_goal_tolerance_ <<  std::endl;
+  // return fabs(dyaw) < yaw_goal_tolerance_;
 }
 
 bool SimpleGoalChecker::getTolerances(
@@ -159,6 +198,8 @@ SimpleGoalChecker::dynamicParametersCallback(std::vector<rclcpp::Parameter> para
         xy_goal_tolerance_sq_ = xy_goal_tolerance_ * xy_goal_tolerance_;
       } else if (name == plugin_name_ + ".yaw_goal_tolerance") {
         yaw_goal_tolerance_ = parameter.as_double();
+      } else if (name == plugin_name_ + ".yaw_goal_modulo") {
+        yaw_goal_modulo_ = parameter.as_double();
       }
     } else if (type == ParameterType::PARAMETER_BOOL) {
       if (name == plugin_name_ + ".stateful") {
