@@ -22,7 +22,8 @@
 #include "nav2_core/progress_checker.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/pose2_d.hpp"
-
+#include "std_msgs/msg/bool.hpp"
+#include "sesto_msgs/msg/paused_status.hpp"
 namespace nav2_controller
 {
 /**
@@ -69,13 +70,22 @@ protected:
   // Dynamic parameters handler
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
   std::string plugin_name_;
-
+  bool is_amr_paused_, is_temporarily_stop_navigating_lift_, is_temporarily_stop_navigating_sd_;
+  
+  // Subscribers
+  rclcpp::Subscription<sesto_msgs::msg::PausedStatus>::SharedPtr amr_paused_state_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr temporarily_stop_navigating_lift_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr temporarily_stop_navigating_sd_sub_;
   /**
    * @brief Callback executed when a paramter change is detected
    * @param parameters list of changed parameters
    */
   rcl_interfaces::msg::SetParametersResult
   dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters);
+
+  void amrPausedStateCB(const sesto_msgs::msg::PausedStatus::SharedPtr msg);
+  void temporarilyStopNavigatingLiftCB(const std_msgs::msg::Bool::SharedPtr msg);
+  void temporarilyStopNavigatingSDCB(const std_msgs::msg::Bool::SharedPtr msg);
 };
 }  // namespace nav2_controller
 

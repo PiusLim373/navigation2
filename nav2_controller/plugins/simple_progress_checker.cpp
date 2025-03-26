@@ -37,6 +37,9 @@ void SimpleProgressChecker::initialize(
   auto node = parent.lock();
 
   clock_ = node->get_clock();
+  is_amr_paused_ = false;
+  is_temporarily_stop_navigating_lift_ = false;
+  is_temporarily_stop_navigating_sd_ = false;
 
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name + ".required_movement_radius", rclcpp::ParameterValue(0.5));
@@ -51,6 +54,32 @@ void SimpleProgressChecker::initialize(
   // Add callback for dynamic parameters
   dyn_params_handler_ = node->add_on_set_parameters_callback(
     std::bind(&SimpleProgressChecker::dynamicParametersCallback, this, _1));
+  amr_paused_state_sub_ = node->create_subscription<sesto_msgs::msg::PausedStatus>(
+    "amr_paused_state", 1, std::bind(&SimpleProgressChecker::amrPausedStateCB, this, std::placeholders::_1));
+  temporarily_stop_navigating_lift_sub_ = node->create_subscription<std_msgs::msg::Bool>(
+    "temporarily_stop_navigating_lift", 1,
+    std::bind(&SimpleProgressChecker::temporarilyStopNavigatingLiftCB, this, std::placeholders::_1));
+  temporarily_stop_navigating_sd_sub_ = node->create_subscription<std_msgs::msg::Bool>(
+    "temporarily_stop_navigating_sd", 1,
+    std::bind(&SimpleProgressChecker::temporarilyStopNavigatingSDCB, this, std::placeholders::_1));
+}
+
+void SimpleProgressChecker::amrPausedStateCB(const sesto_msgs::msg::PausedStatus::SharedPtr msg)
+{
+  if (msg->status == sesto_msgs::msg::PausedStatus::PAUSED)
+    is_amr_paused_ = true;
+  else
+    is_amr_paused_ = false;
+}
+
+void SimpleProgressChecker::temporarilyStopNavigatingLiftCB(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  is_temporarily_stop_navigating_lift_ = msg->data;
+}
+
+void SimpleProgressChecker::temporarilyStopNavigatingSDCB(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  is_temporarily_stop_navigating_sd_ = msg->data;
 }
 
 bool SimpleProgressChecker::check(geometry_msgs::msg::PoseStamped & current_pose)
@@ -60,11 +89,16 @@ bool SimpleProgressChecker::check(geometry_msgs::msg::PoseStamped & current_pose
   geometry_msgs::msg::Pose2D current_pose2d;
   current_pose2d = nav_2d_utils::poseToPose2D(current_pose.pose);
 
-  if ((!baseline_pose_set_) || (isRobotMovedEnough(current_pose2d))) {
+  if ((!baseline_pose_set_) || (isRobotMovedEnough(current_pose2d)) || is_amr_paused_ ||
+      is_temporarily_stop_navigating_lift_ || is_temporarily_stop_navigating_sd_)
+  {
     resetBaselinePose(current_pose2d);
     return true;
   }
-  return !((clock_->now() - baseline_time_) > time_allowance_);
+  bool exceed_time_allowance = (clock_->now() - baseline_time_) > time_allowance_;
+  if (exceed_time_allowance)
+    std::cout << "not making progress, time allowance exceeded" << std::endl;
+  return !exceed_time_allowance;
 }
 
 void SimpleProgressChecker::reset()
