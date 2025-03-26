@@ -195,6 +195,7 @@ ControllerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
   odom_sub_ = std::make_unique<nav_2d_utils::OdomSubscriber>(node);
   vel_publisher_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
   direction_publisher_ = create_publisher<std_msgs::msg::String>("direction", 1);
+  is_path_blocked_publisher_ = create_publisher<std_msgs::msg::Bool>("is_path_blocked", 1);
 
   // Create the action server that we implement with our followPath method
   action_server_ = std::make_unique<ActionServer>(
@@ -496,6 +497,9 @@ void ControllerServer::computeAndPublishVelocity()
       nav_2d_utils::twist2Dto3D(twist),
       goal_checkers_[current_goal_checker_].get());
     last_valid_cmd_time_ = now();
+    std_msgs::msg::Bool is_path_blocked;
+    is_path_blocked.data = false;
+    is_path_blocked_publisher_->publish(is_path_blocked);
   } catch (nav2_core::PlannerException & e) {
     if (failure_tolerance_ > 0 || failure_tolerance_ == -1.0) {
       RCLCPP_WARN(this->get_logger(), "%s", e.what());
@@ -513,6 +517,10 @@ void ControllerServer::computeAndPublishVelocity()
         throw nav2_core::PlannerException("Controller patience exceeded");
       }
     } else {
+      RCLCPP_INFO(get_logger(), "from controller: Local planner cant find traj, pub path blocked");
+      std_msgs::msg::Bool is_path_blocked;
+      is_path_blocked.data = true;
+      is_path_blocked_publisher_->publish(is_path_blocked);
       throw nav2_core::PlannerException(e.what());
     }
   }

@@ -137,6 +137,7 @@ PlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
 
   // Initialize pubs & subs
   plan_publisher_ = create_publisher<nav_msgs::msg::Path>("plan", 1);
+  is_path_blocked_publisher_ = create_publisher<std_msgs::msg::Bool>("is_path_blocked", 1);
 
   // Create the action servers for path planning to a pose and through poses
   action_server_pose_ = std::make_unique<ActionServerToPose>(
@@ -154,7 +155,6 @@ PlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
     nullptr,
     std::chrono::milliseconds(500),
     true);
-
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -337,11 +337,14 @@ bool PlannerServer::validatePath(
   const nav_msgs::msg::Path & path,
   const std::string & planner_id)
 {
+  std_msgs::msg::Bool path_blocked_data;
   if (path.poses.size() == 0) {
     RCLCPP_WARN(
       get_logger(), "Planning algorithm %s failed to generate a valid"
       " path to (%.2f, %.2f)", planner_id.c_str(),
       goal.pose.position.x, goal.pose.position.y);
+    path_blocked_data.data = true;
+    is_path_blocked_publisher_->publish(path_blocked_data);
     action_server->terminate_current();
     return false;
   }
@@ -351,6 +354,8 @@ bool PlannerServer::validatePath(
     "Found valid path of size %zu to (%.2f, %.2f)",
     path.poses.size(), goal.pose.position.x,
     goal.pose.position.y);
+  path_blocked_data.data = false;
+  is_path_blocked_publisher_->publish(path_blocked_data);
 
   return true;
 }

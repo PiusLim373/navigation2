@@ -224,6 +224,7 @@ protected:
   std::unique_ptr<nav_2d_utils::OdomSubscriber> odom_sub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr direction_publisher_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_path_blocked_publisher_;
   rclcpp::Subscription<nav2_msgs::msg::SpeedLimit>::SharedPtr speed_limit_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr laser_muted_sub_;
   rclcpp::Subscription<sesto_msgs::msg::SafetyControl>::SharedPtr safety_control_sub_;
