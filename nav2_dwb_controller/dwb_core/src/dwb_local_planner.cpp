@@ -55,6 +55,8 @@
 
 using nav2_util::declare_parameter_if_not_declared;
 using nav2_util::geometry_utils::euclidean_distance;
+using rcl_interfaces::msg::ParameterType;
+using std::placeholders::_1;
 
 namespace dwb_core
 {
@@ -126,6 +128,9 @@ void DWBLocalPlanner::configure(
     short_circuit_trajectory_evaluation_);
   node->get_parameter(dwb_plugin_name_ + ".shorten_transformed_plan", shorten_transformed_plan_);
 
+  dyn_params_handler_ = node->add_on_set_parameters_callback(
+    std::bind(&DWBLocalPlanner::dynamicParametersCallback, this, _1)); 
+
   pub_ = std::make_unique<DWBPublisher>(node, dwb_plugin_name_);
   pub_->on_configure();
 
@@ -139,6 +144,26 @@ void DWBLocalPlanner::configure(
     RCLCPP_ERROR(logger_, "Couldn't load critics! Caught exception: %s", e.what());
     throw;
   }
+}
+
+rcl_interfaces::msg::SetParametersResult DWBLocalPlanner::dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters)
+{  
+  rcl_interfaces::msg::SetParametersResult result;
+  for (auto parameter : parameters) 
+  {
+    const auto & type = parameter.get_type();
+    const auto & name = parameter.get_name();
+    if (type == ParameterType::PARAMETER_DOUBLE) 
+    {
+      if (name == dwb_plugin_name_ + ".forward_prune_distance")
+      {
+        forward_prune_distance_ = parameter.as_double();
+        RCLCPP_INFO(logger_, "Updated forward_prune_distance to %f", forward_prune_distance_);
+      } 
+    }
+  }
+  result.successful = true;
+  return result;
 }
 
 void

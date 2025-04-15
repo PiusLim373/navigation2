@@ -202,7 +202,9 @@ protected:
   rclcpp::Duration transform_tolerance_{0, 0};
   bool shorten_transformed_plan_;
   double forward_prune_distance_;
-
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
+  rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters);
+  
   /**
    * @brief try to resolve a possibly shortened critic name with the default namespaces and the suffix "Critic"
    *
