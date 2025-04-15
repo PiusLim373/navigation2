@@ -216,6 +216,9 @@ ControllerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
   laser_muted_sub_ = create_subscription<std_msgs::msg::Bool>(
     "laser_mute_status", rclcpp::QoS(10),
     std::bind(&ControllerServer::laserMutedCallback, this, std::placeholders::_1));
+  amr_paused_status_sub_ = create_subscription<sesto_msgs::msg::PausedStatus>(
+    "amr_paused_state", rclcpp::QoS(10),
+    std::bind(&ControllerServer::amrPausedStatusCallback, this, std::placeholders::_1));
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -469,6 +472,9 @@ void ControllerServer::setPlannerPath(const nav_msgs::msg::Path & path)
 
 void ControllerServer::computeAndPublishVelocity()
 {
+  // Dont need to compute velocity if the amr is in paused / teleop state
+  if(is_amr_paused)
+    return;
   geometry_msgs::msg::PoseStamped pose;
 
   if (!getRobotPose(pose)) {
@@ -674,6 +680,14 @@ void ControllerServer::safetyControlCallback(const sesto_msgs::msg::SafetyContro
 void ControllerServer::laserMutedCallback(const std_msgs::msg::Bool::SharedPtr msg)
 {
   laser_muted = msg->data;
+}
+
+void ControllerServer::amrPausedStatusCallback(const sesto_msgs::msg::PausedStatus::SharedPtr msg)
+{
+  if (msg->status == sesto_msgs::msg::PausedStatus::PAUSED) 
+    is_amr_paused = true;
+  else 
+    is_amr_paused = false;
 }
 
 rcl_interfaces::msg::SetParametersResult

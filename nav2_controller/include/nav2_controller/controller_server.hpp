@@ -32,6 +32,7 @@
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "sesto_msgs/msg/safety_control.hpp"
+#include "sesto_msgs/msg/paused_status.hpp"
 #include "nav_2d_utils/odom_subscriber.hpp"
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_util/simple_action_server.hpp"
@@ -228,6 +229,7 @@ protected:
   rclcpp::Subscription<nav2_msgs::msg::SpeedLimit>::SharedPtr speed_limit_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr laser_muted_sub_;
   rclcpp::Subscription<sesto_msgs::msg::SafetyControl>::SharedPtr safety_control_sub_;
+  rclcpp::Subscription<sesto_msgs::msg::PausedStatus>::SharedPtr amr_paused_status_sub_;
 
   // Progress Checker Plugin
   pluginlib::ClassLoader<nav2_core::ProgressChecker> progress_checker_loader_;
@@ -265,6 +267,7 @@ protected:
   std::string direction = "";
   bool safety_violated = false;
   bool laser_muted = false;
+  bool is_amr_paused = false;
 
   // Whether we've published the single controller warning yet
   geometry_msgs::msg::PoseStamped end_pose_;
@@ -283,6 +286,7 @@ private:
   void speedLimitCallback(const nav2_msgs::msg::SpeedLimit::SharedPtr msg);
   void laserMutedCallback(const std_msgs::msg::Bool::SharedPtr msg);
   void safetyControlCallback(const sesto_msgs::msg::SafetyControl::SharedPtr msg);
+  void amrPausedStatusCallback(const sesto_msgs::msg::PausedStatus::SharedPtr msg);
 };
 
 }  // namespace nav2_controller

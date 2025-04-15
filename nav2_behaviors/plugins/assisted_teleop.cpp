@@ -61,6 +61,9 @@ void AssistedTeleop::onConfigure()
     std::bind(
       &AssistedTeleop::preemptTeleopCallback,
       this, std::placeholders::_1));
+  
+  teleop_obstacle_detected_pub_ = node->create_publisher<std_msgs::msg::Bool>(
+    "teleop_obstacle_detected", rclcpp::SystemDefaultsQoS());
 }
 
 Status AssistedTeleop::onRun(const std::shared_ptr<const AssistedTeleopAction::Goal> command)
@@ -115,12 +118,14 @@ Status AssistedTeleop::onCycleUpdate()
   projected_pose.theta = tf2::getYaw(current_pose.pose.orientation);
 
   geometry_msgs::msg::Twist scaled_twist = teleop_twist_;
+  bool collision_detected = false;
   for (double time = simulation_time_step_; time < projection_time_;
     time += simulation_time_step_)
   {
     projected_pose = projectPose(projected_pose, teleop_twist_, simulation_time_step_);
 
     if (!collision_checker_->isCollisionFree(projected_pose)) {
+      collision_detected = true;
       if (time == simulation_time_step_) {
         RCLCPP_DEBUG_STREAM_THROTTLE(
           logger_,
@@ -145,6 +150,9 @@ Status AssistedTeleop::onCycleUpdate()
       }
     }
   }
+  std_msgs::msg::Bool teleop_obstacle;
+  teleop_obstacle.data = collision_detected;
+  teleop_obstacle_detected_pub_->publish(teleop_obstacle);
   vel_pub_->publish(std::move(scaled_twist));
 
   return Status::RUNNING;

@@ -23,6 +23,7 @@
 #include "std_msgs/msg/empty.hpp"
 #include "nav2_behaviors/timed_behavior.hpp"
 #include "nav2_msgs/action/assisted_teleop.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 namespace nav2_behaviors
 {
@@ -96,7 +97,9 @@ protected:
   // subscribers
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr vel_sub_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr preempt_teleop_sub_;
-
+  
+  // publishers
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr teleop_obstacle_detected_pub_;
   rclcpp::Duration command_time_allowance_{0, 0};
   rclcpp::Time end_time_;
 };
