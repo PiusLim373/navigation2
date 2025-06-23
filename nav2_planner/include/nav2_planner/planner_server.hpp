@@ -73,7 +73,9 @@ public:
     const geometry_msgs::msg::PoseStamped & start,
     const geometry_msgs::msg::PoseStamped & goal,
     const std::string & planner_id);
-
+  nav_msgs::msg::Path interpolationPlan(
+      const geometry_msgs::msg::PoseStamped & start,
+      const geometry_msgs::msg::PoseStamped & goal);
 protected:
   /**
    * @brief Configure member variables and initializes planner
@@ -188,7 +190,7 @@ protected:
 
   // Our action server implements the ComputePathToPose action
   std::unique_ptr<ActionServerToPose> action_server_pose_;
-  std::unique_ptr<ActionServerThroughPoses> action_server_poses_;
+  std::unique_ptr<ActionServerThroughPoses> action_server_poses_, action_server_interpolation_poses_;
 
   /**
    * @brief The action server callback which calls planner to get the path
@@ -201,6 +203,7 @@ protected:
    * ComputePathThroughPoses
    */
   void computePlanThroughPoses();
+  void computeInterpolationPlanThroughPoses();
 
   /**
    * @brief The service callback to determine if the path is still valid
@@ -247,7 +250,7 @@ protected:
   nav2_costmap_2d::Costmap2D * costmap_;
 
   // Publishers for the path
-  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_, interpolation_plan_publisher_;
 
   // Service to deterime if the path is valid
   rclcpp::Service<nav2_msgs::srv::IsPathValid>::SharedPtr is_path_valid_service_;

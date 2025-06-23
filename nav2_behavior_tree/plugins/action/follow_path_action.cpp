@@ -35,6 +35,18 @@ void FollowPathAction::on_tick()
   getInput("goal_checker_id", goal_.goal_checker_id);
 }
 
+BT::NodeStatus FollowPathAction::on_success()
+{
+  std::cout << "FollowPathAction succeeded ==== " << std::endl;
+  return BT::NodeStatus::SUCCESS;
+}
+
+BT::NodeStatus FollowPathAction::on_aborted()
+{
+  std::cout << "FollowPathAction aborted ==== " << std::endl;
+  return BT::NodeStatus::FAILURE;
+}
+
 void FollowPathAction::on_wait_for_result(
   std::shared_ptr<const nav2_msgs::action::FollowPath::Feedback>/*feedback*/)
 {

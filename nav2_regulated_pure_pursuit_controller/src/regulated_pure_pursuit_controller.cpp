@@ -301,16 +301,18 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
   double lookahead_dist = getLookAheadDistance(speed);
 
   // Check for reverse driving
-  if (allow_reversing_) {
-    // Cusp check
-    double dist_to_cusp = findVelocitySignChange(transformed_plan);
-
-    // if the lookahead distance is further than the cusp, use the cusp distance instead
-    if (dist_to_cusp < lookahead_dist) {
-      lookahead_dist = dist_to_cusp;
-    }
-  }
-
+  // if (allow_reversing_) {
+  //   // Cusp check
+  //   double dist_to_cusp = findVelocitySignChange(transformed_plan);
+  //   RCLCPP_INFO(
+  //     logger_, "[RegulatedPurePursuitController] Cusp distance: %.2f, "
+  //     "lookahead distance: %.2f", dist_to_cusp, lookahead_dist);
+  //   // if the lookahead distance is further than the cusp, use the cusp distance instead
+  //   if (dist_to_cusp < lookahead_dist) {
+  //     lookahead_dist = dist_to_cusp;
+  //   }
+  // }
+  // RCLCPP_INFO(logger_, "[RegulatedPurePursuitController] Gettingg carrot pose");
   auto carrot_pose = getLookAheadPoint(lookahead_dist, transformed_plan);
   carrot_pub_->publish(createCarrotMsg(carrot_pose));
 
@@ -338,12 +340,20 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
 
   // Make sure we're in compliance with basic constraints
   double angle_to_heading;
-  if (shouldRotateToGoalHeading(carrot_pose)) {
+  if (shouldRotateToGoalHeading(carrot_pose)) 
+  {
+    // reached goal xy tolerance, rotate to goal heading
     double angle_to_goal = tf2::getYaw(transformed_plan.poses.back().pose.orientation);
-    rotateToHeading(linear_vel, angular_vel, angle_to_goal, speed);
-  } else if (shouldRotateToPath(carrot_pose, angle_to_heading)) {
+    rotateToGoalHeading(linear_vel, angular_vel, angle_to_goal, speed);
+  } 
+  else if (shouldRotateToPath(carrot_pose, angle_to_heading)) 
+  {
+    RCLCPP_INFO(logger_, "[RegulatedPurePursuitController] Rotating to path heading: %.2f, carrot_pose x: %.2f, y: %.2f",
+      angle_to_heading, carrot_pose.pose.position.x, carrot_pose.pose.position.y);
     rotateToHeading(linear_vel, angular_vel, angle_to_heading, speed);
-  } else {
+  } 
+  else 
+  {
     applyConstraints(
       curvature, speed,
       costAtPose(pose.pose.position.x, pose.pose.position.y), transformed_plan,
@@ -372,7 +382,16 @@ bool RegulatedPurePursuitController::shouldRotateToPath(
 {
   // Whether we should rotate robot to rough path heading
   angle_to_path = atan2(carrot_pose.pose.position.y, carrot_pose.pose.position.x);
-  return use_rotate_to_heading_ && fabs(angle_to_path) > rotate_to_heading_min_angle_;
+
+  // If robot can go forward or backward, we care about alignment in either direction
+  // Normalize angle to [–pi, pi], then check if it's far from both 0 and pi
+  double abs_angle = fabs(angle_to_path);
+
+  // Check if it's not roughly aligned with either 0 (forward) or pi (backward)
+  double angle_from_backward = fabs(M_PI - abs_angle);
+
+  return (abs_angle > rotate_to_heading_min_angle_) &&
+         (angle_from_backward > rotate_to_heading_min_angle_);
 }
 
 bool RegulatedPurePursuitController::shouldRotateToGoalHeading(
@@ -380,7 +399,31 @@ bool RegulatedPurePursuitController::shouldRotateToGoalHeading(
 {
   // Whether we should rotate robot to goal heading
   double dist_to_goal = std::hypot(carrot_pose.pose.position.x, carrot_pose.pose.position.y);
-  return use_rotate_to_heading_ && dist_to_goal < goal_dist_tol_;
+  return dist_to_goal < goal_dist_tol_;
+}
+
+void RegulatedPurePursuitController::rotateToGoalHeading(
+  double & linear_vel, double & angular_vel,
+  const double & angle_to_path, const geometry_msgs::msg::Twist & curr_speed)
+{
+  // Rotate in place using max angular velocity / acceleration possible
+  linear_vel = 0.0;
+  double angle = angle_to_path;
+  while (angle > M_PI) angle -= 2.0 * M_PI;
+  while (angle < -M_PI) angle += 2.0 * M_PI;
+
+  // Desired angular velocity proportional to angle
+  // You may tune this gain or replace with a fixed velocity if needed
+  double desired_angular_vel = std::copysign(
+    std::max(0.05, std::min(fabs(angle), rotate_to_heading_angular_vel_)),
+    angle);
+
+  // Apply acceleration constraint
+  const double dt = control_duration_;
+  const double min_feasible = curr_speed.angular.z - max_angular_accel_ * dt;
+  const double max_feasible = curr_speed.angular.z + max_angular_accel_ * dt;
+
+  angular_vel = std::clamp(desired_angular_vel, min_feasible, max_feasible);
 }
 
 void RegulatedPurePursuitController::rotateToHeading(
@@ -389,13 +432,30 @@ void RegulatedPurePursuitController::rotateToHeading(
 {
   // Rotate in place using max angular velocity / acceleration possible
   linear_vel = 0.0;
-  const double sign = angle_to_path > 0.0 ? 1.0 : -1.0;
-  angular_vel = sign * rotate_to_heading_angular_vel_;
 
-  const double & dt = control_duration_;
-  const double min_feasible_angular_speed = curr_speed.angular.z - max_angular_accel_ * dt;
-  const double max_feasible_angular_speed = curr_speed.angular.z + max_angular_accel_ * dt;
-  angular_vel = std::clamp(angular_vel, min_feasible_angular_speed, max_feasible_angular_speed);
+  // Normalize angle to [-π, π]
+  double angle = angle_to_path;
+  while (angle > M_PI) angle -= 2.0 * M_PI;
+  while (angle < -M_PI) angle += 2.0 * M_PI;
+  
+  // Rotate in shortest direction at full configured velocity
+  double desired_angular_vel = std::copysign(rotate_to_heading_angular_vel_, angle);
+  // Apply angular acceleration limits
+  const double dt = control_duration_;
+  const double min_feasible = curr_speed.angular.z - max_angular_accel_ * dt;
+  const double max_feasible = curr_speed.angular.z + max_angular_accel_ * dt;
+  
+  angular_vel = std::clamp(desired_angular_vel, min_feasible, max_feasible);
+  RCLCPP_INFO(
+    logger_, "[RegulatedPurePursuitController] Rotating to heading: %.2f, "
+    "desired angular velocity: %.2f, actual_angular_vel: %.2f,  angle_to_path: %.2f", angle, desired_angular_vel, angular_vel, angle_to_path);
+  // const double sign = angle_to_path > 0.0 ? 1.0 : -1.0;
+  // angular_vel = sign * rotate_to_heading_angular_vel_;
+
+  // const double & dt = control_duration_;
+  // const double min_feasible_angular_speed = curr_speed.angular.z - max_angular_accel_ * dt;
+  // const double max_feasible_angular_speed = curr_speed.angular.z + max_angular_accel_ * dt;
+  // angular_vel = std::clamp(angular_vel, min_feasible_angular_speed, max_feasible_angular_speed);
 }
 
 geometry_msgs::msg::Point RegulatedPurePursuitController::circleSegmentIntersection(
