@@ -437,6 +437,13 @@ void RegulatedPurePursuitController::rotateToHeading(
   double angle = angle_to_path;
   while (angle > M_PI) angle -= 2.0 * M_PI;
   while (angle < -M_PI) angle += 2.0 * M_PI;
+
+  // Allow driving backward: if angle > 90°, flip it to turn less
+  if (angle > M_PI_2) {  // > +90°
+    angle -= M_PI;       // turn to -90° and drive backward
+  } else if (angle < -M_PI_2) {  // < -90°
+    angle += M_PI;       // turn to +90° and drive backward
+  }
   
   // Rotate in shortest direction at full configured velocity
   double desired_angular_vel = std::copysign(rotate_to_heading_angular_vel_, angle);
