@@ -263,6 +263,7 @@ protected:
   double min_theta_velocity_threshold_;
 
   double failure_tolerance_;
+  bool publish_zero_velocity_;
 
   std::string direction = "";
   bool safety_violated = false;

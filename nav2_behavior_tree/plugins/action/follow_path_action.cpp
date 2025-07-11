@@ -35,6 +35,18 @@ void FollowPathAction::on_tick()
   getInput("goal_checker_id", goal_.goal_checker_id);
 }
 
+BT::NodeStatus FollowPathAction::on_success()
+{
+  std::cout << "FollowPathAction succeeded ==== " << std::endl;
+  return BT::NodeStatus::SUCCESS;
+}
+
+BT::NodeStatus FollowPathAction::on_aborted()
+{
+  std::cout << "FollowPathAction aborted ==== " << std::endl;
+  return BT::NodeStatus::FAILURE;
+}
+
 void FollowPathAction::on_wait_for_result(
   std::shared_ptr<const nav2_msgs::action::FollowPath::Feedback>/*feedback*/)
 {
@@ -43,7 +55,7 @@ void FollowPathAction::on_wait_for_result(
   getInput("path", new_path);
 
   // Check if it is not same with the current one
-  if (goal_.path != new_path) {
+  if (goal_.path != new_path && new_path != nav_msgs::msg::Path()) {
     // the action server on the next loop iteration
     goal_.path = new_path;
     goal_updated_ = true;

@@ -137,6 +137,7 @@ PlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
 
   // Initialize pubs & subs
   plan_publisher_ = create_publisher<nav_msgs::msg::Path>("plan", 1);
+  interpolation_plan_publisher_ = create_publisher<nav_msgs::msg::Path>("interpolation_plan", 1);
   is_path_blocked_publisher_ = create_publisher<std_msgs::msg::Bool>("is_path_blocked", 1);
 
   // Create the action servers for path planning to a pose and through poses
@@ -155,6 +156,14 @@ PlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
     nullptr,
     std::chrono::milliseconds(500),
     true);
+  
+  action_server_interpolation_poses_ = std::make_unique<ActionServerThroughPoses>(
+    shared_from_this(),
+    "compute_interpolation_path_through_poses",
+    std::bind(&PlannerServer::computeInterpolationPlanThroughPoses, this),
+    nullptr,
+    std::chrono::milliseconds(500),
+    true);
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -164,8 +173,10 @@ PlannerServer::on_activate(const rclcpp_lifecycle::State & /*state*/)
   RCLCPP_INFO(get_logger(), "Activating");
 
   plan_publisher_->on_activate();
+  interpolation_plan_publisher_->on_activate();
   action_server_pose_->activate();
   action_server_poses_->activate();
+  action_server_interpolation_poses_->activate();
   costmap_ros_->activate();
 
   PlannerMap::iterator it;
@@ -453,6 +464,99 @@ PlannerServer::computePlanThroughPoses()
 }
 
 void
+PlannerServer::computeInterpolationPlanThroughPoses()
+{
+  std::lock_guard<std::mutex> lock(dynamic_params_lock_);
+
+  auto start_time = this->now();
+
+  // Initialize the ComputePathToPose goal and result
+  auto goal = action_server_interpolation_poses_->get_current_goal();
+  auto result = std::make_shared<ActionThroughPoses::Result>();
+  nav_msgs::msg::Path concat_path;
+
+  try {
+    if (isServerInactive(action_server_interpolation_poses_) || isCancelRequested(action_server_interpolation_poses_)) {
+      return;
+    }
+
+    waitForCostmap();
+
+    getPreemptedGoalIfRequested(action_server_interpolation_poses_, goal);
+
+    if (goal->goals.size() == 0) {
+      RCLCPP_WARN(
+        get_logger(),
+        "Compute path through poses requested a plan with no viapoint poses, returning.");
+      action_server_interpolation_poses_->terminate_current();
+    }
+
+    // Use start pose if provided otherwise use current robot pose
+    geometry_msgs::msg::PoseStamped start;
+    if (!getStartPose(action_server_interpolation_poses_, goal, start)) {
+      return;
+    }
+
+    // Get consecutive paths through these points
+    geometry_msgs::msg::PoseStamped curr_start, curr_goal;
+    for (unsigned int i = 0; i != goal->goals.size(); i++) {
+      // Get starting point
+      if (i == 0) {
+        curr_start = start;
+      } else {
+        // pick the end of the last planning task as the start for the next one
+        // to allow for path tolerance deviations
+        curr_start = concat_path.poses.back();
+        curr_start.header = concat_path.header;
+      }
+      curr_goal = goal->goals[i];
+
+      // Transform them into the global frame
+      if (!transformPosesToGlobalFrame(action_server_interpolation_poses_, curr_start, curr_goal)) {
+        return;
+      }
+
+      // Get plan from start -> goal
+      nav_msgs::msg::Path curr_path = interpolationPlan(curr_start, curr_goal);
+
+      // check path for validity
+      if (!validatePath(action_server_interpolation_poses_, curr_goal, curr_path, goal->planner_id)) {
+        return;
+      }
+
+      // Concatenate paths together
+      concat_path.poses.insert(
+        concat_path.poses.end(), curr_path.poses.begin(), curr_path.poses.end());
+      concat_path.header = curr_path.header;
+    }
+
+    // Publish the plan for visualization purposes
+    result->path = concat_path;
+    interpolation_plan_publisher_->publish(result->path);
+    // publishPlan(result->path);
+
+    auto cycle_duration = this->now() - start_time;
+    result->planning_time = cycle_duration;
+
+    if (max_planner_duration_ && cycle_duration.seconds() > max_planner_duration_) {
+      RCLCPP_WARN(
+        get_logger(),
+        "Planner loop missed its desired rate of %.4f Hz. Current loop rate is %.4f Hz",
+        1 / max_planner_duration_, 1 / cycle_duration.seconds());
+    }
+
+    action_server_interpolation_poses_->succeeded_current(result);
+  } catch (std::exception & ex) {
+    RCLCPP_WARN(
+      get_logger(),
+      "%s plugin failed to plan through %zu points with final goal (%.2f, %.2f): \"%s\"",
+      goal->planner_id.c_str(), goal->goals.size(), goal->goals.back().pose.position.x,
+      goal->goals.back().pose.position.y, ex.what());
+    action_server_interpolation_poses_->terminate_current();
+  }
+}
+
+void
 PlannerServer::computePlan()
 {
   std::lock_guard<std::mutex> lock(dynamic_params_lock_);
@@ -512,7 +616,52 @@ PlannerServer::computePlan()
     action_server_pose_->terminate_current();
   }
 }
+nav_msgs::msg::Path
+PlannerServer::interpolationPlan(
+  const geometry_msgs::msg::PoseStamped & start,
+  const geometry_msgs::msg::PoseStamped & goal)
+{
+  nav_msgs::msg::Path path;
+  path.header = start.header;
 
+  // Extract start and goal positions
+  const auto & p1 = start.pose.position;
+  const auto & p2 = goal.pose.position;
+
+  // Compute Euclidean distance
+  double dx = p2.x - p1.x;
+  double dy = p2.y - p1.y;
+  double dz = p2.z - p1.z;
+  double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+  // Set spacing to 1cm = 0.01m
+  double resolution = 0.01;
+  int steps = std::max(1, static_cast<int>(std::floor(distance / resolution)));
+
+  // Convert start and goal orientations to tf2::Quaternion
+  tf2::Quaternion q_start, q_goal;
+  tf2::fromMsg(start.pose.orientation, q_start);
+  tf2::fromMsg(goal.pose.orientation, q_goal);
+
+  for (int i = 0; i <= steps; ++i) {
+    double t = static_cast<double>(i) / steps;
+
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header = start.header;
+    pose.pose.position.x = p1.x + t * dx;
+    pose.pose.position.y = p1.y + t * dy;
+    pose.pose.position.z = p1.z + t * dz;
+
+    // SLERP for orientation
+    tf2::Quaternion q_interp = q_start.slerp(q_goal, t);
+    pose.pose.orientation = tf2::toMsg(q_interp);
+
+    path.poses.push_back(pose);
+  }
+
+  return path;
+  
+}
 nav_msgs::msg::Path
 PlannerServer::getPlan(
   const geometry_msgs::msg::PoseStamped & start,

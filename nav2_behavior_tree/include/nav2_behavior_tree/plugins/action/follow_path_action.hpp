@@ -45,6 +45,13 @@ public:
    * @brief Function to perform some user-defined operation on tick
    */
   void on_tick() override;
+  
+  BT::NodeStatus on_success() override;
+
+  /**
+   * @brief Function to perform some user-defined operation upon abortion of the action
+   */
+  BT::NodeStatus on_aborted() override;
 
   /**
    * @brief Function to perform some user-defined operation after a timeout
