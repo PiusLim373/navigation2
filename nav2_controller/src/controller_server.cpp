@@ -458,6 +458,7 @@ void ControllerServer::setPlannerPath(const nav_msgs::msg::Path & path)
   RCLCPP_DEBUG(
     get_logger(),
     "Providing path to the controller %s", current_controller_.c_str());
+  RCLCPP_INFO(get_logger(), "Path has %zu poses", path.poses.size());
   if (path.poses.empty()) {
     throw nav2_core::PlannerException("Invalid path, Path is empty.");
   }

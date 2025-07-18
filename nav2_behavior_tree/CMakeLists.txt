@@ -102,6 +102,9 @@ list(APPEND plugin_libs nav2_wait_action_bt_node)
 add_library(nav2_say_something_node SHARED plugins/action/say_something.cpp)
 list(APPEND plugin_libs nav2_say_something_node)
 
+add_library(nav2_clear_path_node SHARED plugins/action/clear_path.cpp)
+list(APPEND plugin_libs nav2_clear_path_node)
+
 add_library(nav2_assisted_teleop_action_bt_node SHARED plugins/action/assisted_teleop_action.cpp)
 list(APPEND plugin_libs nav2_assisted_teleop_action_bt_node)
 
