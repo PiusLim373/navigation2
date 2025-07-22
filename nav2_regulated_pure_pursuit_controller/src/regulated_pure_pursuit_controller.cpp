@@ -348,8 +348,6 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
   } 
   else if (shouldRotateToPath(carrot_pose, angle_to_heading)) 
   {
-    RCLCPP_INFO(logger_, "[RegulatedPurePursuitController] Rotating to path heading: %.2f, carrot_pose x: %.2f, y: %.2f",
-      angle_to_heading, carrot_pose.pose.position.x, carrot_pose.pose.position.y);
     rotateToHeading(linear_vel, angular_vel, angle_to_heading, speed);
   } 
   else 

@@ -52,6 +52,7 @@ PlannerServer::PlannerServer(const rclcpp::NodeOptions & options)
   // Declare this node's parameters
   declare_parameter("planner_plugins", default_ids_);
   declare_parameter("expected_planner_frequency", 1.0);
+  declare_parameter("lookahead_distance", 4.0);
 
   get_parameter("planner_plugins", planner_ids_);
   if (planner_ids_ == default_ids_) {
@@ -134,6 +135,7 @@ PlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
       " than 0.0 to turn on duration overrrun warning messages", expected_planner_frequency);
     max_planner_duration_ = 0.0;
   }
+  get_parameter("lookahead_distance", lookahead_distance_);
 
   // Initialize pubs & subs
   plan_publisher_ = create_publisher<nav_msgs::msg::Path>("plan", 1);
@@ -739,7 +741,18 @@ void PlannerServer::isPathValid(
     std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> lock(*(costmap_->getMutex()));
     unsigned int mx = 0;
     unsigned int my = 0;
+    double accumulated_dist = 0.0;
+    geometry_msgs::msg::Point last_path_point = request->path.poses[closest_point_index].pose.position;
     for (unsigned int i = closest_point_index; i < request->path.poses.size(); ++i) {
+      if (i > closest_point_index) {
+        accumulated_dist += nav2_util::geometry_utils::euclidean_distance(
+          last_path_point, request->path.poses[i].pose.position);
+      }
+      last_path_point = request->path.poses[i].pose.position;
+      if (accumulated_dist > lookahead_distance_) {
+        // If the accumulated distance is greater than lookahead, stop checking and return value
+        break;
+      }
       costmap_->worldToMap(
         request->path.poses[i].pose.position.x,
         request->path.poses[i].pose.position.y, mx, my);
@@ -749,6 +762,7 @@ void PlannerServer::isPathValid(
         cost == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE)
       {
         response->is_valid = false;
+        return;
       }
     }
   }
@@ -776,6 +790,8 @@ PlannerServer::dynamicParametersCallback(std::vector<rclcpp::Parameter> paramete
           max_planner_duration_ = 0.0;
         }
       }
+      else if (name == "lookahead_distance")
+        lookahead_distance_ = parameter.as_double();
     }
   }
 
