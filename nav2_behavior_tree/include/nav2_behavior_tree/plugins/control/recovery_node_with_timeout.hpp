@@ -17,6 +17,9 @@
 
 #include <string>
 #include "behaviortree_cpp_v3/control_node.h"
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 namespace nav2_behavior_tree
 {
@@ -55,18 +58,11 @@ public:
    */
   static BT::PortsList providedPorts()
   {
-    return {
-      BT::InputPort<int>("number_of_retries", 1, "Number of retries"),
-      BT::InputPort<double>("timeout", 1, "Timeout in seconds")
-    };
+    return {};
   }
 
 private:
   unsigned int current_child_idx_;
-  unsigned int number_of_retries_;
-  unsigned int retry_count_;
-  double timeout_;
-  std::chrono::steady_clock::time_point start_time_;
 
   /**
    * @brief The main override required by a BT action
@@ -78,6 +74,11 @@ private:
    * @brief The other (optional) override required by a BT action to reset node state
    */
   void halt() override;
+  rclcpp::Node::SharedPtr node_;
+  rclcpp::executors::SingleThreadedExecutor callback_group_executor_;
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr check_pathblock_timer_expire_client;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pathblock_timer_control_publisher_;
+
 };
 
 }  // namespace nav2_behavior_tree

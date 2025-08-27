@@ -19,6 +19,8 @@
 
 #include "drive_on_heading.hpp"
 #include "nav2_msgs/action/back_up.hpp"
+#include "std_msgs/msg/empty.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 using BackUpAction = nav2_msgs::action::BackUp;
 
@@ -29,6 +31,11 @@ class BidirectionalBackUp : public DriveOnHeading<nav2_msgs::action::BackUp>
 {
 public:
   Status onRun(const std::shared_ptr<const BackUpAction::Goal> command) override;
+  void onConfigure() override;
+
+protected:
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr stepback_completed_pub;
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr check_to_run_stepback_recovery_client;
 };
 }
 

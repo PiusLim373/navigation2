@@ -451,9 +451,9 @@ void RegulatedPurePursuitController::rotateToHeading(
   const double max_feasible = curr_speed.angular.z + max_angular_accel_ * dt;
   
   angular_vel = std::clamp(desired_angular_vel, min_feasible, max_feasible);
-  RCLCPP_INFO(
-    logger_, "[RegulatedPurePursuitController] Rotating to heading: %.2f, "
-    "desired angular velocity: %.2f, actual_angular_vel: %.2f,  angle_to_path: %.2f", angle, desired_angular_vel, angular_vel, angle_to_path);
+  // RCLCPP_INFO(
+  //   logger_, "[RegulatedPurePursuitController] Rotating to heading: %.2f, "
+  //   "desired angular velocity: %.2f, actual_angular_vel: %.2f,  angle_to_path: %.2f", angle, desired_angular_vel, angular_vel, angle_to_path);
   // const double sign = angle_to_path > 0.0 ? 1.0 : -1.0;
   // angular_vel = sign * rotate_to_heading_angular_vel_;
 

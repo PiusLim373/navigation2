@@ -22,35 +22,36 @@ RecoveryNodeWithTimeout::RecoveryNodeWithTimeout(
   const std::string & name,
   const BT::NodeConfiguration & conf)
 : BT::ControlNode::ControlNode(name, conf),
-  current_child_idx_(0),
-  number_of_retries_(1),
-  retry_count_(0),
-  timeout_(15.0)
+  current_child_idx_(0)
 {
-  getInput("number_of_retries", number_of_retries_);
-  getInput("timeout", timeout_);
+  node_ = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
+  check_pathblock_timer_expire_client = node_->create_client<std_srvs::srv::Trigger>("check_pathblock_timer_expire");
+  pathblock_timer_control_publisher_ = node_->create_publisher<std_msgs::msg::String>("pathblock_timer_control", 1);
 }
 
 BT::NodeStatus RecoveryNodeWithTimeout::tick()
 {
+  callback_group_executor_.spin_some();
   const unsigned children_count = children_nodes_.size();
 
   if (children_count != 2) {
     throw BT::BehaviorTreeException("Recovery Node '" + name() + "' must only have 2 children.");
   }
-  if (start_time_ == std::chrono::steady_clock::time_point{}) {
-    start_time_ = std::chrono::steady_clock::now();  // Capture the current time
-  }
-
   setStatus(BT::NodeStatus::RUNNING);
-  auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start_time_).count();
-  if(elapsed >= 0.8*timeout_){
-    // std::cout<< "Going to timeout soon, " << timeout_ - elapsed  << "secs left" << std::endl;
-  }
-  // std::cout<< "elapsed: " << elapsed << "retry_count: " << retry_count_ << std::endl;
-  // std::cout<< "current_child_idx_: " << current_child_idx_ << "number_of_retries_: " << number_of_retries_ << std::endl;
-
-  while ((current_child_idx_ < children_count && retry_count_ <= number_of_retries_) && (elapsed < timeout_)) {
+  while (current_child_idx_ < children_count) {
+    auto future = check_pathblock_timer_expire_client->async_send_request(std::make_shared<std_srvs::srv::Trigger::Request>());
+    if (rclcpp::spin_until_future_complete(node_, future) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      std::cout << "Failed to call service check_to_run_stepback_recovery" << std::endl;
+      return BT::NodeStatus::FAILURE;
+    }
+    auto result = future.get();
+    if (result->success)
+    {
+      std::cout << "Pathblock controller returning path block timer has expired, returning FAILURE" << std::endl; 
+      return BT::NodeStatus::FAILURE;
+    }
     TreeNode * child_node = children_nodes_[current_child_idx_];
     const BT::NodeStatus child_status = child_node->executeTick();
 
@@ -65,16 +66,10 @@ BT::NodeStatus RecoveryNodeWithTimeout::tick()
 
         case BT::NodeStatus::FAILURE:
           {
-            if (retry_count_ < number_of_retries_ && elapsed < timeout_) {
-              // halt first child and tick second child in next iteration
-              ControlNode::haltChild(0);
-              current_child_idx_++;
-              break;
-            } else {
-              // reset node and return failure when max retries has been exceeded
-              halt();
-              return BT::NodeStatus::FAILURE;
-            }
+            // halt first child and tick second child in next iteration
+            ControlNode::haltChild(0);
+            current_child_idx_++;
+            break;
           }
 
         case BT::NodeStatus::RUNNING:
@@ -94,7 +89,6 @@ BT::NodeStatus RecoveryNodeWithTimeout::tick()
           {
             // halt second child, increment recovery count, and tick first child in next iteration
             ControlNode::haltChild(1);
-            retry_count_++;
             current_child_idx_--;
           }
           break;
@@ -121,16 +115,17 @@ BT::NodeStatus RecoveryNodeWithTimeout::tick()
 
   // reset node and return failure
   halt();
-  std::cout<< "Returning failure, retry count: " << retry_count_ << "elapsed: " << elapsed << std::endl;
   return BT::NodeStatus::FAILURE;
 }
 
 void RecoveryNodeWithTimeout::halt()
 {
   ControlNode::halt();
-  retry_count_ = 0;
   current_child_idx_ = 0;
-  start_time_ = std::chrono::steady_clock::time_point{};
+  std_msgs::msg::String msg;
+  msg.data = "reset";
+  pathblock_timer_control_publisher_->publish(msg);
+
 }
 
 }  // namespace nav2_behavior_tree

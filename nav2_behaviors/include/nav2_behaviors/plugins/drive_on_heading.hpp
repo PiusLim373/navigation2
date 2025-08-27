@@ -129,8 +129,10 @@ public:
     cmd_vel->angular.z = 0.0;
 
     bool forward = command_speed_ > 0.0;
-    if (acceleration_limit_ == 0.0 || deceleration_limit_ == 0.0) {
-      RCLCPP_INFO_ONCE(this->logger_, "DriveOnHeading: no acceleration or deceleration limits set");
+    constexpr double EPSILON = 1e-6;
+    if (std::fabs(acceleration_limit_) < EPSILON || std::fabs(deceleration_limit_) < EPSILON) 
+    {
+      RCLCPP_INFO(this->logger_, "DriveOnHeading: no acceleration or deceleration limits set, setting cmd_vel to %.3f", command_speed_);
       cmd_vel->linear.x = command_speed_;
     } else {
       double current_speed = last_vel_ == std::numeric_limits<double>::max() ? 0.0 : last_vel_;
@@ -161,7 +163,6 @@ public:
     pose2d.x = current_pose.pose.position.x;
     pose2d.y = current_pose.pose.position.y;
     pose2d.theta = tf2::getYaw(current_pose.pose.orientation);
-    std::cout << " ================== drive on heading on cycleupdate check collision ================== " << std::endl;
     if (!isCollisionFree(distance, cmd_vel.get(), pose2d)) {
       this->stopRobot();
       RCLCPP_WARN(this->logger_, "Collision Ahead - Exiting DriveOnHeading");
@@ -169,6 +170,9 @@ public:
     }
 
     last_vel_ = cmd_vel->linear.x;
+    RCLCPP_INFO(this->logger_, "DriveOnHeading command_x %.2f", command_x_);
+    RCLCPP_INFO(this->logger_, "DriveOnHeading command_speed %.2f", command_speed_);
+    RCLCPP_INFO(this->logger_, "DriveOnHeading going at speed %.2f", cmd_vel->linear.x);
     this->vel_pub_->publish(std::move(cmd_vel));
 
     return Status::RUNNING;
@@ -243,7 +247,7 @@ protected:
       rclcpp::ParameterValue(0.0));
     nav2_util::declare_parameter_if_not_declared(
       node, this->behavior_name_ + ".minimum_speed",
-      rclcpp::ParameterValue(0.0));
+      rclcpp::ParameterValue(0.1));
     node->get_parameter(this->behavior_name_ + ".acceleration_limit", acceleration_limit_);
     node->get_parameter(this->behavior_name_ + ".deceleration_limit", deceleration_limit_);
     node->get_parameter(this->behavior_name_ + ".minimum_speed", minimum_speed_);
