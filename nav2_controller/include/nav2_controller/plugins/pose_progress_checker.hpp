@@ -20,6 +20,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "nav2_controller/plugins/simple_progress_checker.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "sesto_msgs/msg/paused_status.hpp"
 
 namespace nav2_controller
 {
@@ -44,7 +45,13 @@ protected:
    * @return true, if movement is greater than radius_, or false
    */
   bool isRobotMovedEnough(const geometry_msgs::msg::Pose2D & pose);
-
+  bool is_amr_paused_, is_temporarily_stop_navigating_lift_, is_temporarily_stop_navigating_sd_;
+  
+  // Subscribers
+  rclcpp::Subscription<sesto_msgs::msg::PausedStatus>::SharedPtr amr_paused_state_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr temporarily_stop_navigating_lift_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr temporarily_stop_navigating_sd_sub_;
+  
   static double poseAngleDistance(
     const geometry_msgs::msg::Pose2D &,
     const geometry_msgs::msg::Pose2D &);
@@ -61,6 +68,10 @@ protected:
    */
   rcl_interfaces::msg::SetParametersResult
   dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters);
+
+  void amrPausedStateCB(const sesto_msgs::msg::PausedStatus::SharedPtr msg);
+  void temporarilyStopNavigatingLiftCB(const std_msgs::msg::Bool::SharedPtr msg);
+  void temporarilyStopNavigatingSDCB(const std_msgs::msg::Bool::SharedPtr msg);
 };
 }  // namespace nav2_controller
 

@@ -37,6 +37,9 @@ void PoseProgressChecker::initialize(
   plugin_name_ = plugin_name;
   SimpleProgressChecker::initialize(parent, plugin_name);
   auto node = parent.lock();
+  is_amr_paused_ = false;
+  is_temporarily_stop_navigating_lift_ = false;
+  is_temporarily_stop_navigating_sd_ = false;
 
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name + ".required_movement_angle", rclcpp::ParameterValue(0.5));
@@ -45,6 +48,33 @@ void PoseProgressChecker::initialize(
   // Add callback for dynamic parameters
   dyn_params_handler_ = node->add_on_set_parameters_callback(
     std::bind(&PoseProgressChecker::dynamicParametersCallback, this, _1));
+  amr_paused_state_sub_ = node->create_subscription<sesto_msgs::msg::PausedStatus>(
+    "amr_paused_state", 1, std::bind(&PoseProgressChecker::amrPausedStateCB, this, std::placeholders::_1));
+  temporarily_stop_navigating_lift_sub_ = node->create_subscription<std_msgs::msg::Bool>(
+    "temporarily_stop_navigating_lift", 1,
+    std::bind(&PoseProgressChecker::temporarilyStopNavigatingLiftCB, this, std::placeholders::_1));
+  temporarily_stop_navigating_sd_sub_ = node->create_subscription<std_msgs::msg::Bool>(
+    "temporarily_stop_navigating_sd", 1,
+    std::bind(&PoseProgressChecker::temporarilyStopNavigatingSDCB, this, std::placeholders::_1));
+}
+
+
+void PoseProgressChecker::amrPausedStateCB(const sesto_msgs::msg::PausedStatus::SharedPtr msg)
+{
+  if (msg->status == sesto_msgs::msg::PausedStatus::PAUSED)
+    is_amr_paused_ = true;
+  else
+    is_amr_paused_ = false;
+}
+
+void PoseProgressChecker::temporarilyStopNavigatingLiftCB(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  is_temporarily_stop_navigating_lift_ = msg->data;
+}
+
+void PoseProgressChecker::temporarilyStopNavigatingSDCB(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  is_temporarily_stop_navigating_sd_ = msg->data;
 }
 
 bool PoseProgressChecker::check(geometry_msgs::msg::PoseStamped & current_pose)
@@ -54,7 +84,8 @@ bool PoseProgressChecker::check(geometry_msgs::msg::PoseStamped & current_pose)
   geometry_msgs::msg::Pose2D current_pose2d;
   current_pose2d = nav_2d_utils::poseToPose2D(current_pose.pose);
 
-  if (!baseline_pose_set_ || PoseProgressChecker::isRobotMovedEnough(current_pose2d)) {
+  if (!baseline_pose_set_ || PoseProgressChecker::isRobotMovedEnough(current_pose2d) || is_amr_paused_ ||
+      is_temporarily_stop_navigating_lift_ || is_temporarily_stop_navigating_sd_) {
     resetBaselinePose(current_pose2d);
     return true;
   }
