@@ -392,6 +392,7 @@ void ControllerServer::computeControl()
     }
 
     setPlannerPath(action_server_->get_current_goal()->path);
+    controllers_[current_controller_]->reset();
     progress_checker_->reset();
 
     last_valid_cmd_time_ = now();

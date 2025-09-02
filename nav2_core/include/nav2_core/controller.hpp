@@ -124,6 +124,7 @@ public:
    * or in absolute values in false case.
    */
   virtual void setSpeedLimit(const double & speed_limit, const bool & percentage) = 0;
+  virtual void reset() {};
 };
 
 }  // namespace nav2_core

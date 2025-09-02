@@ -205,6 +205,7 @@ void RegulatedPurePursuitController::configure(
   collision_checker_ = std::make_unique<nav2_costmap_2d::
       FootprintCollisionChecker<nav2_costmap_2d::Costmap2D *>>(costmap_);
   collision_checker_->setCostmap(costmap_);
+  has_reached_goal_xy_ = false;
 }
 
 void RegulatedPurePursuitController::cleanup()
@@ -346,11 +347,11 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
     double angle_to_goal = tf2::getYaw(transformed_plan.poses.back().pose.orientation);
     rotateToGoalHeading(linear_vel, angular_vel, angle_to_goal, speed);
   } 
-  else if (shouldRotateToPath(carrot_pose, angle_to_heading)) 
+  else if (!has_reached_goal_xy_ && shouldRotateToPath(carrot_pose, angle_to_heading)) 
   {
     rotateToHeading(linear_vel, angular_vel, angle_to_heading, speed);
   } 
-  else 
+  else if (!has_reached_goal_xy_)
   {
     applyConstraints(
       curvature, speed,
@@ -360,7 +361,12 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
     // Apply curvature to angular velocity after constraining linear velocity
     angular_vel = linear_vel * curvature;
   }
-
+  else
+  {
+    // once the robot has reached the goal xy tolerance, it should only rotate to goal heading
+    // so it should not be here
+    RCLCPP_ERROR(logger_, "RegulatedPurePursuitController: Logic error: has_reached_goal_xy_ is true but not rotating to goal heading");
+  }
   // Collision checking on this velocity heading
   const double & carrot_dist = hypot(carrot_pose.pose.position.x, carrot_pose.pose.position.y);
   if (use_collision_detection_ && isCollisionImminent(pose, linear_vel, angular_vel, carrot_dist)) {
@@ -397,7 +403,11 @@ bool RegulatedPurePursuitController::shouldRotateToGoalHeading(
 {
   // Whether we should rotate robot to goal heading
   double dist_to_goal = std::hypot(carrot_pose.pose.position.x, carrot_pose.pose.position.y);
-  return dist_to_goal < goal_dist_tol_;
+  if (has_reached_goal_xy_ || dist_to_goal < goal_dist_tol_) {
+    has_reached_goal_xy_ = true;
+    return true;
+  }
+  return false;
 }
 
 void RegulatedPurePursuitController::rotateToGoalHeading(
@@ -752,6 +762,12 @@ void RegulatedPurePursuitController::setSpeedLimit(
       desired_linear_vel_ = speed_limit;
     }
   }
+}
+
+void RegulatedPurePursuitController::reset()
+{
+  has_reached_goal_xy_ = false;
+  RCLCPP_INFO(logger_, "RegulatedPurePursuitController reset called, has_reached_goal_xy_ set to false");
 }
 
 nav_msgs::msg::Path RegulatedPurePursuitController::transformGlobalPlan(

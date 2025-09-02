@@ -109,7 +109,6 @@ bool SimpleGoalChecker::isGoalReached(
     // std::cout << "inside check_xy_, query pose x: " << query_pose.position.x << "y: " << query_pose.position.y << std::endl;
     double dx = query_pose.position.x - goal_pose.position.x,
       dy = query_pose.position.y - goal_pose.position.y;
-    // std::cout << "inside check_xy_, dx: " << dx << "dy: " << dy << "xy_goal_tolerance_sq_: " << xy_goal_tolerance_sq_ <<  std::endl;
     
     if (dx * dx + dy * dy > xy_goal_tolerance_sq_) {
       return false;
@@ -121,7 +120,6 @@ bool SimpleGoalChecker::isGoalReached(
     }
   }
   double dyaw;
-  std::cout << "curr modulo: " << yaw_goal_modulo_ << std::endl;
 
   if (yaw_goal_modulo_ <= 0.0)
   {
@@ -146,19 +144,19 @@ bool SimpleGoalChecker::isGoalReached(
     else
       dyaw = remainder_diff;
   }
-  // double dyaw = angles::shortest_angular_distance(
-  //   tf2::getYaw(query_pose.orientation),
-  //   tf2::getYaw(goal_pose.orientation));
-  std::cout << "checking yaw, dyaw: " << dyaw << "yaw_goal_tolerance_: " << yaw_goal_tolerance_ <<  std::endl;
-  return fabs(dyaw) < yaw_goal_tolerance_;
-
-
-
-  // double dyaw = angles::shortest_angular_distance(
-  //   tf2::getYaw(query_pose.orientation),
-  //   tf2::getYaw(goal_pose.orientation));
-  // std::cout << "checking yaw, dyaw: " << dyaw << "yaw_goal_tolerance_: " << yaw_goal_tolerance_ <<  std::endl;
-  // return fabs(dyaw) < yaw_goal_tolerance_;
+  if (fabs(dyaw) < yaw_goal_tolerance_)
+  {
+    double xy_dist = sqrt(
+      (query_pose.position.x - goal_pose.position.x) *
+      (query_pose.position.x - goal_pose.position.x) +
+      (query_pose.position.y - goal_pose.position.y) *
+      (query_pose.position.y - goal_pose.position.y));
+    double yaw_dist = fabs(dyaw);
+    RCLCPP_INFO(rclcpp::get_logger("SimpleGoalChecker"), "Goal reached, xy_dist: %.4f, yaw_dist: %.4f, xy_tolerance: %.4f, yaw_tolerance: %.4f",
+      xy_dist, yaw_dist, xy_goal_tolerance_, yaw_goal_tolerance_);
+    return true;
+  }
+  return false;
 }
 
 bool SimpleGoalChecker::getTolerances(

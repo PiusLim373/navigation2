@@ -109,7 +109,9 @@ public:
    * or in absolute values in false case.
    */
   void setSpeedLimit(const double & speed_limit, const bool & percentage) override;
-
+  
+  // to reset the has_reached_goal_xy_ flag when a new goal is received
+  void reset() override;
 protected:
   /**
    * @brief Transforms global plan into same frame as pose and clips poses ineligible for lookaheadPoint
@@ -311,6 +313,7 @@ protected:
   bool allow_reversing_;
   double max_robot_pose_search_dist_;
   bool use_interpolation_;
+  bool has_reached_goal_xy_;
 
   nav_msgs::msg::Path global_plan_;
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> global_path_pub_;
