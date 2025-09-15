@@ -48,6 +48,7 @@ void SmoothControlLaw::setSpeedLimit(
   v_linear_min_ = v_linear_min;
   v_linear_max_ = v_linear_max;
   v_angular_max_ = v_angular_max;
+  slowdown_radius_ = v_linear_max_ + 0.05;
 }
 
 geometry_msgs::msg::Twist SmoothControlLaw::calculateRegularVelocity(
