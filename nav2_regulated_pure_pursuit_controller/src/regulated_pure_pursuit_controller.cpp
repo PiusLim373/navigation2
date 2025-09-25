@@ -78,7 +78,7 @@ void RegulatedPurePursuitController::configure(
     node, plugin_name_ + ".use_velocity_scaled_lookahead_dist",
     rclcpp::ParameterValue(false));
   declare_parameter_if_not_declared(
-    node, plugin_name_ + ".min_approach_linear_velocity", rclcpp::ParameterValue(0.05));
+    node, plugin_name_ + ".min_approach_linear_velocity", rclcpp::ParameterValue(0.01));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".approach_velocity_scaling_dist",
     rclcpp::ParameterValue(0.6));
@@ -423,7 +423,7 @@ void RegulatedPurePursuitController::rotateToGoalHeading(
   // Desired angular velocity proportional to angle
   // You may tune this gain or replace with a fixed velocity if needed
   double desired_angular_vel = std::copysign(
-    std::max(0.05, std::min(fabs(angle), rotate_to_heading_angular_vel_)),
+    std::max(0.01, std::min(fabs(angle), rotate_to_heading_angular_vel_)),
     angle);
 
   // Apply acceleration constraint
