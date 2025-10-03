@@ -48,7 +48,7 @@ void SmoothControlLaw::setSpeedLimit(
   v_linear_min_ = v_linear_min;
   v_linear_max_ = v_linear_max;
   v_angular_max_ = v_angular_max;
-  slowdown_radius_ = v_linear_max_ + 0.05;
+  slowdown_radius_ = 2 * v_linear_max_;
 }
 
 geometry_msgs::msg::Twist SmoothControlLaw::calculateRegularVelocity(
@@ -67,10 +67,11 @@ geometry_msgs::msg::Twist SmoothControlLaw::calculateRegularVelocity(
   double v = v_linear_max_ / (1.0 + beta_ * std::pow(fabs(curvature), lambda_));
 
   // Slowdown when the robot is near the target to remove singularity
-  if (ego_coords.r >= 0.3)
-    v = std::min(v_linear_max_ * (ego_coords.r / slowdown_radius_), v);
-  else
-    v = std::min(v_linear_max_ * (ego_coords.r / 0.8), v);
+  // apply a indirect propotional gain to the slowdown radius, slowdown_radius will increase up to 0.8m when dist to goal is 0
+  // So that the curvature is not too high when the robot is very close to the goal and make weird yawing
+  if (v_linear_max_ > 0.2 && ego_coords.r < 0.3)
+    slowdown_radius_ = ((0.8 - 2 * v_linear_max_) / -0.3) * ego_coords.r + 0.8;
+  v = std::min(v_linear_max_ * (ego_coords.r / slowdown_radius_), v);
 
   // Set some small v_min when far away from origin to promote faster
   // turning motion when the curvature is very high
