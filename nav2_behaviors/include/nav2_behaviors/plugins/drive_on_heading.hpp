@@ -205,7 +205,7 @@ protected:
     const int max_cycle_count = static_cast<int>(this->cycle_frequency_ * simulate_ahead_time_);
     geometry_msgs::msg::Pose2D init_pose = pose2d;
     bool fetch_data = true;
-
+    RCLCPP_INFO(this->logger_, "cycle_frequency_: %d, simulate_ahead_time_: %.3f",  static_cast<int>(this->cycle_frequency_) , simulate_ahead_time_);
     while (cycle_count < max_cycle_count) {
       sim_position_change = cmd_vel->linear.x * (cycle_count / this->cycle_frequency_);
       pose2d.x = init_pose.x + sim_position_change * cos(init_pose.theta);
@@ -217,6 +217,7 @@ protected:
       }
 
       if (!this->collision_checker_->isCollisionFree(pose2d, fetch_data)) {
+         RCLCPP_INFO(this->logger_, "Collision detected at cycle %d, sim_position_change %.3f, pose2d (%.3f, %.3f, %.3f)", cycle_count, sim_position_change, pose2d.x, pose2d.y, pose2d.theta);
         return false;
       }
       fetch_data = false;

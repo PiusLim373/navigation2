@@ -25,6 +25,7 @@ void BidirectionalBackUp::onConfigure()
   }
   stepback_completed_pub = node->create_publisher<std_msgs::msg::Empty>("stepback_completed", 1);
   check_to_run_stepback_recovery_client = node->create_client<std_srvs::srv::Trigger>("check_to_run_stepback_recovery");
+  DriveOnHeading::onConfigure();  // need to run parent onConfigure, else parameters won't be loaded
 }
 
 Status BidirectionalBackUp::onRun(const std::shared_ptr<const BackUpAction::Goal> command)
