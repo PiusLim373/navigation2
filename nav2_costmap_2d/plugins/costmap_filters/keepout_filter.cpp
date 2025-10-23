@@ -155,9 +155,9 @@ void KeepoutFilter::process(
   std::lock_guard<CostmapFilter::mutex_t> guard(*getMutex());
 
   if (!mask_costmap_) {
-    // Show warning message every 2 seconds to not litter an output
+    // Show warning message every 30 seconds to not litter an output
     RCLCPP_WARN_THROTTLE(
-      logger_, *(clock_), 2000,
+      logger_, *(clock_), 30000,
       "KeepoutFilter: Filter mask was not received");
     return;
   }
