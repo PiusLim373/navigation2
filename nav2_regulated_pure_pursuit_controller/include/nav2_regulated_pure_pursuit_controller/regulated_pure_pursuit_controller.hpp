@@ -308,6 +308,7 @@ protected:
   double regulated_linear_scaling_min_speed_;
   bool use_rotate_to_heading_;
   double max_angular_accel_;
+  double max_angular_decel_;
   double rotate_to_heading_min_angle_;
   double goal_dist_tol_;
   bool allow_reversing_;

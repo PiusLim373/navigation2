@@ -57,7 +57,7 @@ void RegulatedPurePursuitController::configure(
   clock_ = node->get_clock();
 
   double transform_tolerance = 0.1;
-  double control_frequency = 20.0;
+  double control_frequency = 5.0;
   goal_dist_tol_ = 0.25;  // reasonable default before first update
 
   declare_parameter_if_not_declared(
@@ -108,7 +108,9 @@ void RegulatedPurePursuitController::configure(
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".rotate_to_heading_min_angle", rclcpp::ParameterValue(0.785));
   declare_parameter_if_not_declared(
-    node, plugin_name_ + ".max_angular_accel", rclcpp::ParameterValue(3.2));
+    node, plugin_name_ + ".max_angular_accel", rclcpp::ParameterValue(0.5));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".max_angular_decel", rclcpp::ParameterValue(0.8));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".allow_reversing", rclcpp::ParameterValue(false));
   declare_parameter_if_not_declared(
@@ -168,8 +170,9 @@ void RegulatedPurePursuitController::configure(
   node->get_parameter(plugin_name_ + ".use_rotate_to_heading", use_rotate_to_heading_);
   node->get_parameter(plugin_name_ + ".rotate_to_heading_min_angle", rotate_to_heading_min_angle_);
   node->get_parameter(plugin_name_ + ".max_angular_accel", max_angular_accel_);
+  node->get_parameter(plugin_name_ + ".max_angular_decel", max_angular_decel_);
   node->get_parameter(plugin_name_ + ".allow_reversing", allow_reversing_);
-  node->get_parameter("controller_frequency", control_frequency);
+  node->get_parameter(plugin_name_ + ".llc_cmd_vel_output_frequency", control_frequency);
   node->get_parameter(
     plugin_name_ + ".max_robot_pose_search_dist",
     max_robot_pose_search_dist_);
@@ -428,8 +431,19 @@ void RegulatedPurePursuitController::rotateToGoalHeading(
 
   // Apply acceleration constraint
   const double dt = control_duration_;
-  const double min_feasible = curr_speed.angular.z - max_angular_accel_ * dt;
-  const double max_feasible = curr_speed.angular.z + max_angular_accel_ * dt;
+  double min_feasible, max_feasible;
+  double decel_adjustment = max_angular_decel_ * dt;
+  double accel_adjustment = max_angular_accel_ * dt;
+  if (curr_speed.angular.z >= 0.0)
+  {
+    min_feasible = curr_speed.angular.z - decel_adjustment;
+    max_feasible = curr_speed.angular.z + accel_adjustment;
+  }
+  else  // for negative angular speed, the calculations are flipped as std::clamp need min <= max
+  {
+    min_feasible = curr_speed.angular.z - accel_adjustment;
+    max_feasible = curr_speed.angular.z + decel_adjustment;
+  }
 
   angular_vel = std::clamp(desired_angular_vel, min_feasible, max_feasible);
 }
@@ -457,20 +471,21 @@ void RegulatedPurePursuitController::rotateToHeading(
   double desired_angular_vel = std::copysign(rotate_to_heading_angular_vel_, angle);
   // Apply angular acceleration limits
   const double dt = control_duration_;
-  const double min_feasible = curr_speed.angular.z - max_angular_accel_ * dt;
-  const double max_feasible = curr_speed.angular.z + max_angular_accel_ * dt;
-  
-  angular_vel = std::clamp(desired_angular_vel, min_feasible, max_feasible);
-  // RCLCPP_INFO(
-  //   logger_, "[RegulatedPurePursuitController] Rotating to heading: %.2f, "
-  //   "desired angular velocity: %.2f, actual_angular_vel: %.2f,  angle_to_path: %.2f", angle, desired_angular_vel, angular_vel, angle_to_path);
-  // const double sign = angle_to_path > 0.0 ? 1.0 : -1.0;
-  // angular_vel = sign * rotate_to_heading_angular_vel_;
+  double min_feasible, max_feasible;
+  double decel_adjustment = max_angular_decel_ * dt;
+  double accel_adjustment = max_angular_accel_ * dt;
+  if (curr_speed.angular.z >= 0.0)
+  {
+    min_feasible = curr_speed.angular.z - decel_adjustment;
+    max_feasible = curr_speed.angular.z + accel_adjustment;
+  }
+  else  // for negative angular speed, the calculations are flipped as std::clamp need min <= max
+  {
+    min_feasible = curr_speed.angular.z - accel_adjustment;
+    max_feasible = curr_speed.angular.z + decel_adjustment;
+  }
 
-  // const double & dt = control_duration_;
-  // const double min_feasible_angular_speed = curr_speed.angular.z - max_angular_accel_ * dt;
-  // const double max_feasible_angular_speed = curr_speed.angular.z + max_angular_accel_ * dt;
-  // angular_vel = std::clamp(angular_vel, min_feasible_angular_speed, max_feasible_angular_speed);
+  angular_vel = std::clamp(desired_angular_vel, min_feasible, max_feasible);
 }
 
 geometry_msgs::msg::Point RegulatedPurePursuitController::circleSegmentIntersection(
@@ -947,6 +962,8 @@ RegulatedPurePursuitController::dynamicParametersCallback(
         regulated_linear_scaling_min_speed_ = parameter.as_double();
       } else if (name == plugin_name_ + ".max_angular_accel") {
         max_angular_accel_ = parameter.as_double();
+      } else if (name == plugin_name_ + ".max_angular_decel") {
+        max_angular_decel_ = parameter.as_double();
       } else if (name == plugin_name_ + ".rotate_to_heading_min_angle") {
         rotate_to_heading_min_angle_ = parameter.as_double();
       }
