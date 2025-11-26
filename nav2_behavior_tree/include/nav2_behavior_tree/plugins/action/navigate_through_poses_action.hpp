@@ -57,6 +57,9 @@ public:
       {
         BT::InputPort<geometry_msgs::msg::PoseStamped>("goals", "Destinations to plan through"),
         BT::InputPort<std::string>("behavior_tree", "Behavior tree to run"),
+        BT::OutputPort<std::vector<geometry_msgs::msg::Point>>("c1_list", "Bezier control points C1"),
+        BT::OutputPort<std::vector<geometry_msgs::msg::Point>>("c2_list", "Bezier control points C2"),
+        BT::OutputPort<std::vector<bool>>("is_curve_set_list", "Curve flags per waypoint"),
       });
   }
 };

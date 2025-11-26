@@ -37,6 +37,9 @@ void ComputeInterpolationPathThroughPosesAction::on_tick()
     goal_.use_start = true;
   }
   getInput("check_only", check_only);
+  getInput("c1_list", goal_.c1);                // std::vector<geometry_msgs::msg::Point>
+  getInput("c2_list", goal_.c2);                // std::vector<geometry_msgs::msg::Point>
+  getInput("is_curve_set_list", goal_.is_curve_set); // std::vector<bool>
 }
 
 BT::NodeStatus ComputeInterpolationPathThroughPosesAction::on_success()

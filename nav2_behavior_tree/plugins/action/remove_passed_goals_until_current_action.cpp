@@ -35,8 +35,8 @@ RemovePassedGoalsUntilCurrent::RemovePassedGoalsUntilCurrent(
   getInput("global_frame", global_frame_);
   getInput("robot_base_frame", robot_base_frame_);
   tf_ = config().blackboard->get<std::shared_ptr<tf2_ros::Buffer>>("tf_buffer");
-  auto node = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
-  node->get_parameter("transform_tolerance", transform_tolerance_);
+  node_ = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
+  node_->get_parameter("transform_tolerance", transform_tolerance_);
 }
 
 inline BT::NodeStatus RemovePassedGoalsUntilCurrent::tick()
@@ -52,6 +52,13 @@ inline BT::NodeStatus RemovePassedGoalsUntilCurrent::tick()
   }
 
   using namespace nav2_util::geometry_utils;  // NOLINT
+
+  std::vector<bool> is_curve_set_list;
+  std::vector<geometry_msgs::msg::Point> c1_list;
+  std::vector<geometry_msgs::msg::Point> c2_list;
+  getInput("input_is_curve_set_list", is_curve_set_list);
+  getInput("input_c1_list", c1_list);
+  getInput("input_c2_list", c2_list);
 
   geometry_msgs::msg::PoseStamped current_pose;
   if (!nav2_util::getCurrentPose(
@@ -74,19 +81,36 @@ inline BT::NodeStatus RemovePassedGoalsUntilCurrent::tick()
 
   // return the goals that are after the closest goal waypoint
   Goals new_goal_poses;
+  std::vector<bool> new_is_curve_set_list;
+  std::vector<geometry_msgs::msg::Point> new_c1_list;
+  std::vector<geometry_msgs::msg::Point> new_c2_list;
+
   for (unsigned int i = closest_goal_index; i < goal_poses.size(); ++i) {
     new_goal_poses.push_back(goal_poses[i]);
+
+    if (i < is_curve_set_list.size()) {
+        new_is_curve_set_list.push_back(is_curve_set_list[i]);
+    } else {
+        new_is_curve_set_list.push_back(false);
+    }
+    if (i < c1_list.size()) {
+        new_c1_list.push_back(c1_list[i]);
+    } else {
+        geometry_msgs::msg::Point p;
+        new_c1_list.push_back(p);
+    }
+    if (i < c2_list.size()) {
+        new_c2_list.push_back(c2_list[i]);
+    } else {
+        geometry_msgs::msg::Point p;
+        new_c2_list.push_back(p);
+    }
   }
-  // std::cout << "closest goal index: " << closest_goal_index << std::endl;
-  // std::cout << "current pose: "
-  //           << current_pose.pose.position.x << ", "
-  //           << current_pose.pose.position.y << std::endl;
-  // std::cout << "closest goal pose: "
-  //           << goal_poses[closest_goal_index].pose.position.x << ", "
-  //           << goal_poses[closest_goal_index].pose.position.y << std::endl;
-  // std::cout << "new goal poses size: " << new_goal_poses.size() << std::endl;
 
   setOutput("output_goals", new_goal_poses);
+  setOutput("output_is_curve_set_list", new_is_curve_set_list);
+  setOutput("output_c1_list", new_c1_list);
+  setOutput("output_c2_list", new_c2_list);
 
   return BT::NodeStatus::SUCCESS;
 }

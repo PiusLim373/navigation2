@@ -519,7 +519,19 @@ PlannerServer::computeInterpolationPlanThroughPoses()
       }
 
       // Get plan from start -> goal
-      nav_msgs::msg::Path curr_path = interpolationPlan(curr_start, curr_goal);
+      nav_msgs::msg::Path curr_path;
+      RCLCPP_WARN(get_logger(), "Current start position: x=%.3f, y=%.3f", curr_start.pose.position.x, curr_start.pose.position.y);
+      RCLCPP_WARN(get_logger(), "Current goal position: x=%.3f, y=%.3f", curr_goal.pose.position.x, curr_goal.pose.position.y);
+
+      if(i!=0 && goal->is_curve_set[i]){ //Force initial waypoint without curve
+        RCLCPP_WARN(get_logger(), "Compute path through bezier at goal [%d]: c1=(%.3f, %.3f), c2=(%.3f, %.3f)",
+                    i, goal->c1[i].x, goal->c1[i].y, goal->c2[i].x, goal->c2[i].y);
+        curr_path = interpolationBezierPlan(curr_start, curr_goal, goal->c1[i], goal->c2[i]);
+      }
+      else{
+        RCLCPP_WARN(get_logger(), "Compute path through interpolation at goal [%d]", i);
+        curr_path = interpolationPlan(curr_start, curr_goal);
+      }
 
       // check path for validity
       if (!validatePath(action_server_interpolation_poses_, curr_goal, curr_path, goal->planner_id)) {
@@ -527,9 +539,47 @@ PlannerServer::computeInterpolationPlanThroughPoses()
       }
 
       // Concatenate paths together
-      concat_path.poses.insert(
-        concat_path.poses.end(), curr_path.poses.begin(), curr_path.poses.end());
+      concat_path.poses.insert(concat_path.poses.end(), curr_path.poses.begin(), curr_path.poses.end());
       concat_path.header = curr_path.header;
+    }
+
+    // =========================================================================
+    // Prune the concatenated path to remove the "Tail" behind the robot
+    // =========================================================================
+    
+    if (!concat_path.poses.empty()) {
+  
+        size_t best_index = 0;
+        bool found = false;
+        // 2. Scan the Full Concatenated Path
+        for (int i = concat_path.poses.size() - 1; i >= 0; --i) {
+            
+            double dist_sq = std::hypot(concat_path.poses[i].pose.position.x - start.pose.position.x, 
+                                        concat_path.poses[i].pose.position.y - start.pose.position.y);
+            // Optimization: Ignore points > 0.15m away to prevent jumping to wrong loop segment
+            if (dist_sq > 0.15) continue;
+            best_index = i;
+            found = true;
+            break; // STOP searching. We found the furthest valid point.
+        }
+
+        // Reconstruct Path starting from best_index
+        if (found && best_index > 0) {
+            std::vector<geometry_msgs::msg::PoseStamped> pruned_poses;
+            
+            // Start with Robot Pose (Continuity)
+            pruned_poses.push_back(start);
+
+            // Add the rest of the path
+            for (size_t i = best_index; i < concat_path.poses.size(); ++i) {
+                pruned_poses.push_back(concat_path.poses[i]);
+            }
+            
+            if (pruned_poses.size() > 1) {
+                RCLCPP_WARN(get_logger(), "Reverse Pruning: Jumped to index %zu", best_index);
+                concat_path.poses = pruned_poses;
+            }
+        }
     }
 
     // Publish the plan for visualization purposes
@@ -663,6 +713,55 @@ PlannerServer::interpolationPlan(
 
   return path;
   
+}
+nav_msgs::msg::Path PlannerServer::interpolationBezierPlan(
+    const geometry_msgs::msg::PoseStamped & start,
+    const geometry_msgs::msg::PoseStamped & goal,
+    const geometry_msgs::msg::Point & p1, const geometry_msgs::msg::Point & p2)
+{
+    nav_msgs::msg::Path path;
+    path.header = start.header;
+
+    const auto & p0 = start.pose.position;
+    const auto & p3 = goal.pose.position;
+
+    // Euclidean distance as a rough guide for number of steps
+    double dx = p3.x - p0.x;
+    double dy = p3.y - p0.y;
+    double dz = p3.z - p0.z;
+    double distance = std::sqrt(dx*dx + dy*dy + dz*dz);
+
+    double resolution = 0.1;
+    int steps = std::max(1, static_cast<int>(std::floor(distance / resolution)));
+
+    geometry_msgs::msg::Point prev_pos = p0;  // store previous position
+
+    for(int i = 0; i <= steps; ++i) {
+        double t = static_cast<double>(i)/steps;
+        double u = 1.0 - t;
+
+        geometry_msgs::msg::PoseStamped pose;
+        pose.header = start.header;
+
+        // Cubic Bezier formula
+        pose.pose.position.x = u*u*u*p0.x + 3*u*u*t*p1.x + 3*u*t*t*p2.x + t*t*t*p3.x;
+        pose.pose.position.y = u*u*u*p0.y + 3*u*u*t*p1.y + 3*u*t*t*p2.y + t*t*t*p3.y;
+        pose.pose.position.z = u*u*u*p0.z + 3*u*u*t*p1.z + 3*u*t*t*p2.z + t*t*t*p3.z;
+
+        // Compute yaw along tangent (prev → current)
+        double dx = pose.pose.position.x - prev_pos.x;
+        double dy = pose.pose.position.y - prev_pos.y;
+        double yaw = std::atan2(dy, dx);
+
+        tf2::Quaternion q;
+        q.setRPY(0, 0, yaw);
+        pose.pose.orientation = tf2::toMsg(q);
+
+        path.poses.push_back(pose);
+        prev_pos = pose.pose.position;
+    }
+
+    return path;
 }
 nav_msgs::msg::Path
 PlannerServer::getPlan(

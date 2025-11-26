@@ -76,6 +76,11 @@ public:
   nav_msgs::msg::Path interpolationPlan(
       const geometry_msgs::msg::PoseStamped & start,
       const geometry_msgs::msg::PoseStamped & goal);
+  nav_msgs::msg::Path interpolationBezierPlan(
+      const geometry_msgs::msg::PoseStamped & start,
+      const geometry_msgs::msg::PoseStamped & goal,
+      const geometry_msgs::msg::Point & p1, const geometry_msgs::msg::Point & p2);
+      
 protected:
   /**
    * @brief Configure member variables and initializes planner

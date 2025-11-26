@@ -112,7 +112,7 @@ class BasicNavigator(Node):
         self.initial_pose = initial_pose
         self._setInitialPose()
 
-    def goThroughPoses(self, poses, behavior_tree=''):
+    def goThroughPoses(self, poses, behavior_tree='', c1=None, c2=None, is_curve_set=None):
         """Send a `NavThroughPoses` action request."""
         self.debug("Waiting for 'NavigateThroughPoses' action server")
         while not self.nav_through_poses_client.wait_for_server(timeout_sec=1.0):
@@ -121,8 +121,11 @@ class BasicNavigator(Node):
         goal_msg = NavigateThroughPoses.Goal()
         goal_msg.poses = poses
         goal_msg.behavior_tree = behavior_tree
+        goal_msg.c1 = c1 if c1 is not None else []
+        goal_msg.c2 = c2 if c2 is not None else []
+        goal_msg.is_curve_set = is_curve_set if is_curve_set is not None else []
 
-        self.info(f'Navigating with {len(goal_msg.poses)} goals....')
+        self.info(f'Navigating with {len(goal_msg.poses)} goals and {len(goal_msg.is_curve_set)} is_curve_set....')
         send_goal_future = self.nav_through_poses_client.send_goal_async(goal_msg,
                                                                          self._feedbackCallback)
         rclpy.spin_until_future_complete(self, send_goal_future)
@@ -361,7 +364,7 @@ class BasicNavigator(Node):
         else:
             return rtn.path
 
-    def getPathThroughPoses(self, start, goals, planner_id='', use_start=False):
+    def getPathThroughPoses(self, start, goals, planner_id='', use_start=False): # To include spline
         """Send a `ComputePathThroughPoses` action request."""
         self.debug("Waiting for 'ComputePathThroughPoses' action server")
         while not self.compute_path_through_poses_client.wait_for_server(timeout_sec=1.0):

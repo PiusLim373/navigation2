@@ -1,6 +1,9 @@
 #goal definition
 geometry_msgs/PoseStamped[] poses
 string behavior_tree
+geometry_msgs/Point[] c1
+geometry_msgs/Point[] c2
+bool[] is_curve_set
 ---
 #result definition
 std_msgs/Empty result

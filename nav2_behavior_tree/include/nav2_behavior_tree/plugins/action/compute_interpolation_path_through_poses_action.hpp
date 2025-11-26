@@ -84,6 +84,9 @@ public:
           "planner_id", "",
           "Mapped name to the planner plugin type to use"),
         BT::InputPort<std::string>("check_only", "false", "if true, path generated will not be used and output to temp path, only checked for validity"),
+        BT::InputPort<std::vector<bool>>("is_curve_set_list", "Curve flags per waypoint"),
+        BT::InputPort<std::vector<geometry_msgs::msg::Point>>("c1_list", "Bezier control points C1"),
+        BT::InputPort<std::vector<geometry_msgs::msg::Point>>("c2_list", "Bezier control points C2"),
       });
   }
 };
