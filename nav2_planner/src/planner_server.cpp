@@ -551,13 +551,13 @@ PlannerServer::computeInterpolationPlanThroughPoses()
   
         size_t best_index = 0;
         bool found = false;
-        // 2. Scan the Full Concatenated Path
+        // Scan the Full Concatenated Path
         for (int i = concat_path.poses.size() - 1; i >= 0; --i) {
             
             double dist_sq = std::hypot(concat_path.poses[i].pose.position.x - start.pose.position.x, 
                                         concat_path.poses[i].pose.position.y - start.pose.position.y);
-            // Optimization: Ignore points > 0.15m away to prevent jumping to wrong loop segment
-            if (dist_sq > 0.15) continue;
+            // Optimization: Ignore points > 0.2m away to prevent jumping to wrong loop segment
+            if (dist_sq > 0.2) continue;
             best_index = i;
             found = true;
             break; // STOP searching. We found the furthest valid point.
@@ -731,7 +731,7 @@ nav_msgs::msg::Path PlannerServer::interpolationBezierPlan(
     double dz = p3.z - p0.z;
     double distance = std::sqrt(dx*dx + dy*dy + dz*dz);
 
-    double resolution = 0.1;
+    double resolution = 0.02;
     int steps = std::max(1, static_cast<int>(std::floor(distance / resolution)));
 
     geometry_msgs::msg::Point prev_pos = p0;  // store previous position
