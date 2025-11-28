@@ -748,14 +748,19 @@ nav_msgs::msg::Path PlannerServer::interpolationBezierPlan(
         pose.pose.position.y = u*u*u*p0.y + 3*u*u*t*p1.y + 3*u*t*t*p2.y + t*t*t*p3.y;
         pose.pose.position.z = u*u*u*p0.z + 3*u*u*t*p1.z + 3*u*t*t*p2.z + t*t*t*p3.z;
 
-        // Compute yaw along tangent (prev → current)
-        double dx = pose.pose.position.x - prev_pos.x;
-        double dy = pose.pose.position.y - prev_pos.y;
-        double yaw = std::atan2(dy, dx);
+        if(i==steps){
+          pose.pose.orientation = goal.pose.orientation;
+        }
+        else{
+          // Compute yaw along tangent (prev → current)
+          double dx = pose.pose.position.x - prev_pos.x;
+          double dy = pose.pose.position.y - prev_pos.y;
+          double yaw = std::atan2(dy, dx);
 
-        tf2::Quaternion q;
-        q.setRPY(0, 0, yaw);
-        pose.pose.orientation = tf2::toMsg(q);
+          tf2::Quaternion q;
+          q.setRPY(0, 0, yaw);
+          pose.pose.orientation = tf2::toMsg(q);
+        }
 
         path.poses.push_back(pose);
         prev_pos = pose.pose.position;
