@@ -45,6 +45,12 @@ public:
       BT::InputPort<double>("radius", 0.5, "radius to goal for it to be considered for removal"),
       BT::InputPort<std::string>("global_frame", std::string("map"), "Global frame"),
       BT::InputPort<std::string>("robot_base_frame", std::string("base_link"), "Robot base frame"),
+      BT::InputPort<std::vector<bool>>("input_is_curve_set_list", "Original curve flags"),
+      BT::OutputPort<std::vector<bool>>("output_is_curve_set_list", "Pruned curve flags"),
+      BT::InputPort<std::vector<geometry_msgs::msg::Point>>("input_c1_list", "Original C1 list"),
+      BT::OutputPort<std::vector<geometry_msgs::msg::Point>>("output_c1_list", "Pruned C1 list"),
+      BT::InputPort<std::vector<geometry_msgs::msg::Point>>("input_c2_list", "Original C2 list"),
+      BT::OutputPort<std::vector<geometry_msgs::msg::Point>>("output_c2_list", "Pruned C2 list"),
     };
   }
 
@@ -56,6 +62,7 @@ private:
   std::string robot_base_frame_, global_frame_;
   double transform_tolerance_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
+  rclcpp::Node::SharedPtr node_;
 };
 
 }  // namespace nav2_behavior_tree

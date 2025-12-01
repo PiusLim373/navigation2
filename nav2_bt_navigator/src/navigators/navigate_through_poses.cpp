@@ -42,6 +42,24 @@ NavigateThroughPosesNavigator::configure(
 
   path_blackboard_id_ = node->get_parameter("path_blackboard_id").as_string();
 
+  if (!node->has_parameter("c1_list_id")) {
+    node->declare_parameter("c1_list_id", std::string("c1_list"));
+  }
+
+  c1_list_id_ = node->get_parameter("c1_list_id").as_string();
+
+  if (!node->has_parameter("c2_list_id")) {
+    node->declare_parameter("c2_list_id", std::string("c2_list"));
+  }
+
+  c2_list_id_ = node->get_parameter("c2_list_id").as_string();
+
+  if (!node->has_parameter("is_curve_set_list_id")) {
+    node->declare_parameter("is_curve_set_list_id", std::string("is_curve_set_list"));
+  }
+
+  is_curve_set_list_id_ = node->get_parameter("is_curve_set_list_id").as_string();
+
   // Odometry smoother object for getting current speed
   odom_smoother_ = odom_smoother;
 
@@ -203,8 +221,9 @@ NavigateThroughPosesNavigator::initializeGoalPoses(ActionT::Goal::ConstSharedPtr
 {
   if (goal->poses.size() > 0) {
     RCLCPP_INFO(
-      logger_, "Begin navigating from current location through %zu poses to (%.2f, %.2f)",
-      goal->poses.size(), goal->poses.back().pose.position.x, goal->poses.back().pose.position.y);
+      logger_, "Begin navigating from current location through %zu poses to (%.2f, %.2f) c1 size: %zu, c2 size: %zu, is_curve_set size: %zu",
+      goal->poses.size(), goal->poses.back().pose.position.x, goal->poses.back().pose.position.y,
+      goal->c1.size(), goal->c2.size(), goal->is_curve_set.size());
   }
 
   // Reset state for new action feedback
@@ -214,6 +233,10 @@ NavigateThroughPosesNavigator::initializeGoalPoses(ActionT::Goal::ConstSharedPtr
 
   // Update the goal pose on the blackboard
   blackboard->set<Goals>(goals_blackboard_id_, goal->poses);
+  blackboard->set<std::vector<geometry_msgs::msg::Point>>(c1_list_id_, goal->c1);
+  blackboard->set<std::vector<geometry_msgs::msg::Point>>(c2_list_id_, goal->c2);
+  blackboard->set<std::vector<bool>>(is_curve_set_list_id_, goal->is_curve_set);
+
 }
 
 }  // namespace nav2_bt_navigator

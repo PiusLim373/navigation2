@@ -3,6 +3,9 @@ geometry_msgs/PoseStamped[] goals
 geometry_msgs/PoseStamped start
 string planner_id
 bool use_start # If false, use current robot pose as path start, if true, use start above instead
+geometry_msgs/Point[] c1
+geometry_msgs/Point[] c2
+bool[] is_curve_set
 ---
 #result definition
 nav_msgs/Path path

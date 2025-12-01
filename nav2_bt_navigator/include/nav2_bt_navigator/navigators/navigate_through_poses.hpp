@@ -110,6 +110,9 @@ protected:
   rclcpp::Time start_time_;
   std::string goals_blackboard_id_;
   std::string path_blackboard_id_;
+  std::string c1_list_id_;
+  std::string c2_list_id_;
+  std::string is_curve_set_list_id_;
 
   // Odometry smoother object
   std::shared_ptr<nav2_util::OdomSmoother> odom_smoother_;
