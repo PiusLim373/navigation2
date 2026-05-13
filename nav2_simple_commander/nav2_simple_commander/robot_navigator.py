@@ -54,6 +54,7 @@ class BasicNavigator(Node):
         self.result_future = None
         self.feedback = None
         self.status = None
+        self.seer_navigation_return_code = 0
 
         amcl_pose_qos = QoSProfile(
           durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
@@ -286,13 +287,13 @@ class BasicNavigator(Node):
         rclpy.spin_until_future_complete(self, self.result_future, timeout_sec=0.10)
         if self.result_future.result():
             self.status = self.result_future.result().status
-            print(f"[Robot navigator] {self.status}")
+            self.seer_navigation_return_code = self.result_future.result().result.return_code
+            self.info(f"[Robot navigator] status: {self.status}, seer_navigation_return_code: {self.seer_navigation_return_code}")
             if self.status != GoalStatus.STATUS_SUCCEEDED:
                 self.debug(f'Task with failed with status code: {self.status}')
                 return True
         else:
             # Timed out, still processing, not complete yet
-            print("[Robot navigator] timeout")
             return False
 
         self.debug('Task succeeded!')
@@ -303,10 +304,17 @@ class BasicNavigator(Node):
         return self.feedback
 
     def getResult(self):
+        self.info(f"[Robot navigator] status: {self.status}, seer_navigation_return_code: {self.seer_navigation_return_code}")
         """Get the pending action result message."""
         if self.status == GoalStatus.STATUS_SUCCEEDED:
             return TaskResult.SUCCEEDED
         elif self.status == GoalStatus.STATUS_ABORTED:
+            # Seer will return task completed when user teleop it mid navigation, 
+            # so the seer_navigation_node will catch this and flag out as abort, 
+            # but assign a diff return code
+            if self.seer_navigation_return_code == 1:
+                self.info("Seer return code 1, returning canceled instead of failed")
+                return TaskResult.CANCELED
             return TaskResult.FAILED
         elif self.status == GoalStatus.STATUS_CANCELED:
             return TaskResult.CANCELED

@@ -7,6 +7,7 @@ bool[] is_curve_set
 ---
 #result definition
 std_msgs/Empty result
+int8 return_code  #used by seer
 ---
 #feedback definition
 geometry_msgs/PoseStamped current_pose
