@@ -64,8 +64,14 @@ if(COMPILER_SUPPORTS_FMA)
   add_compile_options(-mfma)
 endif()
 
-# If building one the same hardware to be deployed on, try `-march=native`!
-add_compile_options(-O3 -finline-limit=10000000 -ffp-contract=fast -ffast-math -mtune=generic)
+# TMMS: do NOT use -march=native here. This package is cross-built in the arm64
+# tmms_build container running under QEMU on an x86 host, where `native` resolves
+# to QEMU's "max" CPU (SVE2, SHA3, SM4, bf16, i8mm). The robot's Cortex-A78AE has
+# none of those, so the autovectorized optimizer loops SIGILL the moment
+# MPPIController::configure() runs. See the xtensor::optimize note below.
+# -mtune only affects instruction scheduling, never which instructions are
+# emitted, so it is safe to tune for the deployment target.
+add_compile_options(-O3 -finline-limit=10000000 -ffp-contract=fast -ffast-math -mtune=cortex-a78)
 
 add_library(mppi_controller SHARED
   src/controller.cpp
@@ -101,7 +107,11 @@ foreach(lib IN LISTS libraries)
     target_compile_options(${lib} PUBLIC -fconcepts)
   endif()
   target_include_directories(${lib} PUBLIC ${xsimd_INCLUDE_DIRS})  #  ${OpenMP_INCLUDE_DIRS}
-  target_link_libraries(${lib} xtensor xtensor::optimize xtensor::use_xsimd)
+  # TMMS: xtensor::optimize is deliberately NOT linked -- its only effect is to
+  # append -march=native (see xtensorConfig.cmake), which is meaningless and
+  # actively harmful when cross-building under emulation. -O3 is already set
+  # above, and NEON is baseline on every armv8-a, so xsimd still vectorizes.
+  target_link_libraries(${lib} xtensor xtensor::use_xsimd)
   ament_target_dependencies(${lib} ${dependencies_pkgs})
 endforeach()
 
