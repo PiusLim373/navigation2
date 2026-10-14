@@ -15,13 +15,17 @@
 #ifndef NAV2_BEHAVIORS__PLUGINS__ASSISTED_TELEOP_HPP_
 #define NAV2_BEHAVIORS__PLUGINS__ASSISTED_TELEOP_HPP_
 
+#include <atomic>
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "geometry_msgs/msg/twist.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/empty.hpp"
 #include "nav2_behaviors/timed_behavior.hpp"
+#include "nav2_costmap_2d/footprint_subscriber.hpp"
 #include "nav2_msgs/action/assisted_teleop.hpp"
 #include "nav2_util/twist_subscriber.hpp"
 
@@ -66,6 +70,9 @@ public:
    */
   CostmapInfoType getResourceInfo() override {return CostmapInfoType::LOCAL;}
 
+  void activate() override;
+  void deactivate() override;
+
 protected:
   /**
    * @brief Configuration of behavior action
@@ -89,18 +96,42 @@ protected:
    */
   void preemptTeleopCallback(const std_msgs::msg::Empty::SharedPtr msg);
 
+  /**
+   * @brief Publish teleop_obstacle when the value changes
+   */
+  void setObstacle(bool obstacle);
+
+  /**
+   * @brief Distance of the farthest footprint vertex, 0 until a footprint arrives
+   */
+  double footprintRadius();
+
   AssistedTeleopAction::Feedback::SharedPtr feedback_;
 
   // parameters
   double projection_time_;
   double simulation_time_step_;
+  double cmd_vel_teleop_timeout_{0.0};
+  double min_projection_distance_{0.0};
+  bool stop_on_collision_{false};
 
+  // Written by the subscription, read by the action thread
+  std::mutex teleop_mutex_;
   geometry_msgs::msg::TwistStamped teleop_twist_;
+  rclcpp::Time teleop_time_{0, 0, RCL_ROS_TIME};
   bool preempt_teleop_{false};
+  bool obstacle_{false};
+  double footprint_radius_{0.0};
+  // Set before the action server deactivates, which waits for the running goal to end
+  std::atomic<bool> stopping_{false};
 
   // subscribers
   std::unique_ptr<nav2_util::TwistSubscriber> vel_sub_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr preempt_teleop_sub_;
+  std::unique_ptr<nav2_costmap_2d::FootprintSubscriber> footprint_sub_;
+
+  // publishers
+  rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Bool>::SharedPtr obstacle_pub_;
 
   rclcpp::Duration command_time_allowance_{0, 0};
   rclcpp::Time end_time_;
