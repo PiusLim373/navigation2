@@ -42,13 +42,40 @@ void PoseProgressChecker::initialize(
     node, plugin_name + ".required_movement_angle", rclcpp::ParameterValue(0.5));
   node->get_parameter_or(plugin_name + ".required_movement_angle", required_movement_angle_, 0.5);
 
+  // Empty keeps the upstream behaviour
+  nav2_util::declare_parameter_if_not_declared(
+    node, plugin_name + ".pause_status_topic", rclcpp::ParameterValue(std::string("")));
+  std::string pause_status_topic;
+  node->get_parameter(plugin_name + ".pause_status_topic", pause_status_topic);
+  if (!pause_status_topic.empty()) {
+    pause_sub_ = node->create_subscription<tmms_msgs::msg::QuadrupedMainStatus>(
+      pause_status_topic, 10,
+      [this](const tmms_msgs::msg::QuadrupedMainStatus::SharedPtr msg) {
+        paused_ = msg->is_paused;
+        pause_status_ns_ = clock_->now().nanoseconds();
+      });
+  }
+
   // Add callback for dynamic parameters
   dyn_params_handler_ = node->add_on_set_parameters_callback(
     std::bind(&PoseProgressChecker::dynamicParametersCallback, this, _1));
 }
 
+bool PoseProgressChecker::isPaused() const
+{
+  // The status arrives at 5 Hz; a silent publisher must not hold the check open forever
+  constexpr int64_t kStaleNs = 1000000000;
+  return paused_ && clock_->now().nanoseconds() - pause_status_ns_ < kStaleNs;
+}
+
 bool PoseProgressChecker::check(geometry_msgs::msg::PoseStamped & current_pose)
 {
+  // Held still on purpose: restart the time allowance from when the pause ends
+  if (isPaused()) {
+    reset();
+    return true;
+  }
+
   // relies on short circuit evaluation to not call is_robot_moved_enough if
   // baseline_pose is not set.
   geometry_msgs::msg::Pose2D current_pose2d;
