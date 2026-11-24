@@ -21,7 +21,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "nav2_controller/plugins/simple_progress_checker.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "tmms_msgs/msg/quadruped_main_status.hpp"
+#include "goaway_msgs/msg/quadruped_main_status.hpp"
 
 namespace nav2_controller
 {
@@ -58,9 +58,9 @@ protected:
 
   double required_movement_angle_;
 
-  // Pause from tmms quadruped_main_status: the robot is held still on purpose, not stuck.
+  // Pause from goaway quadruped_main_status: the robot is held still on purpose, not stuck.
   // Written by the subscription, read by the controller thread.
-  rclcpp::Subscription<tmms_msgs::msg::QuadrupedMainStatus>::SharedPtr pause_sub_;
+  rclcpp::Subscription<goaway_msgs::msg::QuadrupedMainStatus>::SharedPtr pause_sub_;
   std::atomic<bool> paused_{false};
   std::atomic<int64_t> pause_status_ns_{0};
 
