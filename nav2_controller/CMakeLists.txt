@@ -15,7 +15,7 @@ find_package(nav2_msgs REQUIRED)
 find_package(nav_2d_utils REQUIRED)
 find_package(nav_2d_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
-find_package(goaway_msgs REQUIRED)
+find_package(htxgrrt_msgs REQUIRED)
 
 nav2_package()
 
@@ -47,7 +47,7 @@ set(dependencies
   nav2_util
   nav2_core
   pluginlib
-  goaway_msgs
+  htxgrrt_msgs
 )
 
 add_library(simple_progress_checker SHARED plugins/simple_progress_checker.cpp)

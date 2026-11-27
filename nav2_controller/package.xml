@@ -21,7 +21,7 @@
   <depend>nav2_core</depend>
   <depend>pluginlib</depend>
   <!-- PoseProgressChecker's pause_status_topic -->
-  <depend>goaway_msgs</depend>
+  <depend>htxgrrt_msgs</depend>
 
   <test_depend>ament_lint_common</test_depend>
   <test_depend>ament_lint_auto</test_depend>

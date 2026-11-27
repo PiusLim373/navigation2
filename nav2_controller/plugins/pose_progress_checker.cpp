@@ -48,9 +48,9 @@ void PoseProgressChecker::initialize(
   std::string pause_status_topic;
   node->get_parameter(plugin_name + ".pause_status_topic", pause_status_topic);
   if (!pause_status_topic.empty()) {
-    pause_sub_ = node->create_subscription<goaway_msgs::msg::QuadrupedMainStatus>(
+    pause_sub_ = node->create_subscription<htxgrrt_msgs::msg::QuadrupedMainStatus>(
       pause_status_topic, 10,
-      [this](const goaway_msgs::msg::QuadrupedMainStatus::SharedPtr msg) {
+      [this](const htxgrrt_msgs::msg::QuadrupedMainStatus::SharedPtr msg) {
         paused_ = msg->is_paused;
         pause_status_ns_ = clock_->now().nanoseconds();
       });
